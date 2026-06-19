@@ -13,7 +13,7 @@ https://<app>.<BASE_DOMAIN>/
 On the server, Caddy maps each app host to a static folder:
 
 ```text
-/var/www/apps/<app>/
+/srv/apps/<app>/
 ```
 
 The same host also exposes the platform API at `/_api/*`. Because the browser calls same-origin URLs, app code does not need CORS configuration, API URLs, or credentials.

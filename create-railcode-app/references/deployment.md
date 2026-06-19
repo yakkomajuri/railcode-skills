@@ -81,7 +81,7 @@ cp deploy/config.env.example deploy/config.env
 
 Commands:
 
-- `apps`: rsync all `app-bundles/` folders to `/var/www/apps`.
+- `apps`: rsync all `app-bundles/` folders to `/srv/apps`.
 - `backend` or `api`: build `frontend`, build `sdk`, rsync `backend/` to `/opt/railcode-api`, run `uv sync`, restart `railcode-api`.
 - `caddy`: sync `Caddyfile` and reload Caddy.
 - `all`: backend, caddy, then apps.
