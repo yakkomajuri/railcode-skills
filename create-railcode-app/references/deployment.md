@@ -43,37 +43,24 @@ For a single app:
 
 ```bash
 cd apps/my-tool
-npm run build
-cd ../..
-railcode deploy my-tool --access workspace
+railcode deploy
 ```
 
-`railcode deploy` syncs `tools/my-tool/` to the server's tool root. It does not rebuild the app and does not restart backend services.
+`railcode deploy` builds the current app and uploads the inferred static output
+to the Railcode backend over HTTP. It does not restart backend services.
 
-Access examples:
+Deploy sends to the configured Railcode API URL. The URL resolution order is:
 
-```bash
-railcode login --api-url https://auth.tools.example.com
-railcode deploy my-tool --access private
-railcode deploy my-tool --access workspace
-railcode deploy my-tool --access restricted --access-users teammate@example.com
-railcode deploy my-tool --access restricted --access-domains example.com
-```
+- `RAILCODE_API_URL`
+- `railcode.json` `deploy.apiUrl`
+- saved CLI config
+- the local default `http://auth.127.0.0.1.nip.io:8080`
 
-Use `--target`, `--remote-root`, and `--dry-run` when needed:
+When no API token is saved, `railcode deploy` prompts for login and creates one.
+For non-interactive deploys, set `RAILCODE_API_TOKEN`.
 
-```bash
-railcode deploy my-tool --target ubuntu@tools.example.com --remote-root /var/www/tools
-railcode deploy my-tool --dry-run
-```
-
-If `--target` is omitted, `railcode deploy` reads `deploy/config.env`:
-
-```text
-HOST=tools.example.com
-SSH_USER=ubuntu
-SSH_OPTS="-i ~/.ssh/lightsail.pem"
-```
+For `apps/<tool>` projects, deploy publishes `tools/<tool>/`. For standalone
+app repos, deploy falls back to `dist/`.
 
 ## Platform Repo Deploy Script
 
@@ -125,11 +112,6 @@ docker compose down -v
 
 After an app deploy:
 
-```bash
-railcode status --tool my-tool --api-url https://auth.tools.example.com
-railcode whoami --tool my-tool --api-url https://auth.tools.example.com
-```
-
 Open:
 
 ```text
@@ -143,11 +125,4 @@ Check:
 - `me()` returns the expected user and tool.
 - KV/files reads and writes succeed.
 - SQL/LLM features show configured, empty, or disabled states cleanly.
-- Access policy matches the requested mode.
-
-For app data inspection:
-
-```bash
-railcode store list <collection> --tool my-tool --api-url https://auth.tools.example.com
-railcode files list --tool my-tool --api-url https://auth.tools.example.com
-```
+- Access policy in the admin UI matches the intended audience.

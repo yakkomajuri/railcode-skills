@@ -57,14 +57,7 @@ The SDK also mounts a live inspector drawer that shows SDK activity. Do not hide
 
 ## Access Policies
 
-A tool without an access policy is closed. Configure access with:
-
-```bash
-railcode deploy my-tool --access private
-railcode deploy my-tool --access workspace
-railcode deploy my-tool --access restricted --access-users a@example.com,b@example.com
-railcode deploy my-tool --access restricted --access-domains example.com
-```
+A tool without an access policy is closed. Configure access in the admin UI.
 
 Modes:
 

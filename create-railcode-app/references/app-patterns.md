@@ -186,7 +186,7 @@ If the app depends on SQL or LLM, test local no-backend behavior and logged-in b
 
 ```bash
 railcode dev --reset --verbose
-railcode login --api-url https://auth.tools.example.com
+RAILCODE_API_URL=https://auth.tools.example.com RAILCODE_API_TOKEN=<token> railcode dev --verbose
 railcode dev --verbose
 ```
 

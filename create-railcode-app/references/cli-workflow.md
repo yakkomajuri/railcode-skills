@@ -1,6 +1,6 @@
 # CLI Workflow
 
-Use this reference when an agent needs exact Railcode CLI behavior, command options, local dev behavior, or API utilities.
+Use this reference when an agent needs exact Railcode CLI behavior, local dev behavior, or app deploy behavior.
 
 ## Install Or Link The CLI
 
@@ -13,9 +13,7 @@ npm run build
 npm link
 ```
 
-The CLI stores config under `${RAILCODE_HOME:-~/.railcode}/config.json`. The default API URL is `http://auth.127.0.0.1.nip.io:8080`. Override per command with `--api-url` or for the process with `RAILCODE_API_URL`.
-
-For non-interactive login, pass `--username`, `--password`, and `--api-url`, or set `RAILCODE_USERNAME`, `RAILCODE_PASSWORD`, and `RAILCODE_API_URL`.
+The CLI stores config under `${RAILCODE_HOME:-~/.railcode}/config.json`. The default API URL is `http://auth.127.0.0.1.nip.io:8080`. For deploy, set `RAILCODE_API_URL`, put `deploy.apiUrl` in `railcode.json`, or rely on the saved CLI config.
 
 ## Create An App
 
@@ -84,64 +82,31 @@ Local API behavior:
 
 If the remote backend rejects forwarded local-dev calls with `401` or `403`, `connections()` becomes `[]`; other backend-backed calls return a `502` explaining that local identity/KV/files still work.
 
-## Login And Status
-
-```bash
-railcode login --api-url https://auth.tools.example.com --username you@example.com
-railcode status
-railcode status --tool my-tool
-railcode whoami --tool my-tool
-railcode logout
-```
-
-`railcode login` logs in through `/login`, creates an API token through `/api-token`, and stores both session cookies and the bearer token locally.
-
-Remote app API commands require a saved API token:
-
-```bash
-railcode store list notes --tool my-tool
-railcode store get notes key --tool my-tool
-railcode store put notes key '{"text":"hello"}' --tool my-tool
-railcode store put notes key --file data.json --tool my-tool
-railcode store delete notes key --tool my-tool
-
-railcode files list --tool my-tool
-railcode files upload logo logo.png --tool my-tool --content-type image/png
-railcode files download logo logo.png --tool my-tool
-railcode files delete logo --tool my-tool
-```
-
-File API names cannot contain `/`.
-
 ## Deploy A Tool With The CLI
-
-Build first:
 
 ```bash
 cd apps/my-tool
-npm run build
-cd ../..
+railcode deploy
 ```
 
-Deploy:
+Deploy behavior:
 
-```bash
-railcode deploy my-tool
-railcode deploy my-tool --target ubuntu@tools.example.com
-railcode deploy my-tool --remote-root /var/www/tools
-railcode deploy my-tool --dry-run
+- Infers the app from `railcode.json` `app`/`tool`, or from the `apps/<tool>` path.
+- Runs the app's `build` script when one exists, installing dependencies first when missing.
+- Publishes `tools/<tool>/` for workspace apps, falling back to `dist/` for standalone app repos.
+- Uploads the static files over HTTP to `/v1/apps/<tool>/deploy`.
+- Uses a saved API token, prompts for login when needed, or reads `RAILCODE_API_TOKEN` for non-interactive runs.
+
+The deploy API accepts admins for any app and app owners for apps where the
+access policy grants them `owner`.
+
+Optional `railcode.json` URL:
+
+```json
+{
+  "app": "my-tool",
+  "deploy": {
+    "apiUrl": "https://auth.tools.example.com"
+  }
+}
 ```
-
-Target resolution:
-
-- `--target` wins.
-- Otherwise load `deploy/config.env` and use `SSH_USER@HOST`.
-- `--remote-root` defaults to `TOOLS_ROOT` from `deploy/config.env`, then `/var/www/tools`.
-- `SSH_OPTS` from `deploy/config.env` is passed to ssh/rsync.
-
-The deploy command rsyncs:
-
-- `tools/<tool>/` to `<target>:<remote-root>/<tool>/`
-- `tools/` to `<target>:<remote-root>/` with `--all`
-
-Use `railcode deploy <tool> --access private|workspace|restricted` to configure tool access after a successful sync. Restricted deploys accept comma-separated `--access-users` and `--access-domains`. Access configuration requires an admin login session from `railcode login`.

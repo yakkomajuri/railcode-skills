@@ -13,9 +13,7 @@ Start from the Railcode workspace root when possible. A normal app-builder loop 
 railcode init my-tool
 cd apps/my-tool
 railcode dev
-npm run build
-cd ../..
-railcode deploy my-tool --access workspace
+railcode deploy
 ```
 
 If `railcode` is unavailable in a source checkout, build and link the CLI first:
@@ -33,7 +31,7 @@ Use lowercase app names with digits and dashes only. `railcode init <tool>` crea
 
 Load only the reference needed for the task:
 
-- [CLI workflow](references/cli-workflow.md): exact `railcode` commands, local dev behavior, command options, and remote data utilities.
+- [CLI workflow](references/cli-workflow.md): exact `railcode` commands and local dev/deploy behavior.
 - [Platform magic](references/platform-magic.md): how same-origin auth, `/_api/sdk.js`, tool identity, access policies, KV/files, SQL, and LLM work.
 - [App patterns](references/app-patterns.md): implementation patterns for React/Vite apps, SDK wrappers, data modeling, SQL, LLM, and frontend expectations.
 - [Deployment](references/deployment.md): server setup, DNS, app deploys, platform deploys, access policy deploys, and verification.
@@ -55,7 +53,7 @@ Model data intentionally:
 
 Run `railcode dev` from `apps/<tool>` or any directory with a `railcode.json`. It serves the app at `http://127.0.0.1:7331`, runs the asset dev server when applicable, serves the SDK at `/_api/sdk.js`, and stores local KV/files under `~/.railcode/dev/<tool>`.
 
-Local dev mocks identity, tool users, KV, and files. It forwards backend-backed APIs such as SQL, connections, and LLM to the configured Railcode API when the CLI has a saved API token. Use `railcode login --api-url <auth-url>` first when an app needs those production-backed APIs during local dev.
+Local dev mocks identity, tool users, KV, and files. It forwards backend-backed APIs such as SQL, connections, and LLM to the configured Railcode API when the CLI has a saved API token.
 
 ## Validation
 
@@ -70,4 +68,4 @@ When changing the CLI, SDK, backend, deploy scripts, or platform behavior, run t
 
 ## Deployment Rule Of Thumb
 
-Use `railcode deploy <tool>` for day-to-day static app publishes. Use `./deploy/deploy tools` when deploying all built tools from the platform repo. Use `./deploy/deploy backend`, `caddy`, or `all` only when changing platform infrastructure, backend routes, the admin UI, Caddy config, or the bundled SDK.
+Use `railcode deploy` from the app directory for day-to-day static app publishes. Use `./deploy/deploy tools` when deploying all built tools from the platform repo. Use `./deploy/deploy backend`, `caddy`, or `all` only when changing platform infrastructure, backend routes, the admin UI, Caddy config, or the bundled SDK.
