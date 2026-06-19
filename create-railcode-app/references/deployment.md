@@ -49,7 +49,8 @@ railcode deploy
 `railcode deploy` builds the current app and uploads the inferred static output
 to the Railcode backend over HTTP. It does not restart backend services.
 
-Deploy sends to the configured Railcode API URL. The URL resolution order is:
+Deploy sends to the configured Railcode URL and uploads to the canonical
+`api.<domain>` host. The URL resolution order is:
 
 - `RAILCODE_API_URL`
 - `railcode.json` `deploy.apiUrl`
@@ -58,6 +59,9 @@ Deploy sends to the configured Railcode API URL. The URL resolution order is:
 
 When no API token is saved, `railcode deploy` prompts for login and creates one.
 For non-interactive deploys, set `RAILCODE_API_TOKEN`.
+
+When the app has no access policy yet, deploy creates a private owner policy for
+the deploying user. The CLI prints the live tool URL after upload.
 
 For `apps/<tool>` projects, deploy publishes `tools/<tool>/`. For standalone
 app repos, deploy falls back to `dist/`.

@@ -94,11 +94,14 @@ Deploy behavior:
 - Infers the app from `railcode.json` `app`/`tool`, or from the `apps/<tool>` path.
 - Runs the app's `build` script when one exists, installing dependencies first when missing.
 - Publishes `tools/<tool>/` for workspace apps, falling back to `dist/` for standalone app repos.
-- Uploads the static files over HTTP to `/v1/apps/<tool>/deploy`.
+- Uploads the static files over HTTP to `api.<domain>/v1/apps/<tool>/deploy`.
 - Uses a saved API token, prompts for login when needed, or reads `RAILCODE_API_TOKEN` for non-interactive runs.
+- Creates a private owner access policy for the deploying user when the app has no policy yet.
+- Prints the live tool URL after a successful upload.
 
-The deploy API accepts admins for any app and app owners for apps where the
-access policy grants them `owner`.
+The deploy API accepts admins for any app, existing app owners for apps where
+the access policy grants them `owner`, and any authenticated user for an
+unclaimed app with no access policy.
 
 Optional `railcode.json` URL:
 
@@ -106,7 +109,7 @@ Optional `railcode.json` URL:
 {
   "app": "my-tool",
   "deploy": {
-    "apiUrl": "https://auth.tools.example.com"
+    "apiUrl": "https://api.tools.example.com"
   }
 }
 ```
