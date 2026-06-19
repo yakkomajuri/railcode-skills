@@ -4,7 +4,7 @@ Use this reference when implementing a Railcode app UI, data model, SDK calls, o
 
 ## Starter Layout
 
-`railcode init <tool>` creates:
+`railcode init <app>` creates:
 
 ```text
 railcode.json
@@ -31,7 +31,7 @@ dist/
 
 ```json
 {
-  "app": "my-tool",
+  "app": "my-app",
   "dev": {
     "root": ".",
     "port": 5173
@@ -65,7 +65,7 @@ Fail clearly when SDK globals are unavailable. This usually means the app is bei
 
 ## UI Expectations
 
-Railcode apps are internal tools. Build the actual working interface as the first screen, not a marketing page. Favor dense, readable, task-focused layouts with clear states for loading, empty data, errors, and successful writes.
+Railcode apps are internal apps. Build the actual working interface as the first screen, not a marketing page. Favor dense, readable, task-focused layouts with clear states for loading, empty data, errors, and successful writes.
 
 Do not add custom auth screens. Users should arrive authenticated through the platform. Use `me()` only to show identity or namespace data.
 
@@ -184,7 +184,7 @@ If the app depends on SQL or LLM, test local no-backend behavior and logged-in b
 
 ```bash
 railcode dev --reset --verbose
-RAILCODE_API_URL=https://auth.tools.example.com RAILCODE_API_TOKEN=<token> railcode dev --verbose
+RAILCODE_API_URL=https://auth.apps.example.com RAILCODE_API_TOKEN=<token> railcode dev --verbose
 railcode dev --verbose
 ```
 
@@ -194,6 +194,6 @@ railcode dev --verbose
 - Editing `dist/` directly is lost on the next build.
 - First deploy creates public access for signed-in users.
 - Using un-namespaced KV keys accidentally shares private data across users.
-- Treating `toolUsers().users` as a complete roster when `complete` is false.
+- Treating `appUsers().users` as a complete roster when `complete` is false.
 - String-concatenating SQL user input creates injection risk even though transactions are read-only.
 - Assuming LLM is always enabled; it requires provider settings and a global daily token cap.

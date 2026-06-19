@@ -60,10 +60,10 @@ When no API token is saved, `railcode deploy` prompts for login and creates one.
 For non-interactive deploys, set `RAILCODE_API_TOKEN`.
 
 When the app has no access policy yet, deploy creates public access for
-signed-in users. The CLI prints the live tool URL after upload.
+signed-in users. The CLI prints the live app URL after upload.
 
-For root app repos, deploy publishes `dist/`. Legacy `apps/<tool>` workspaces
-can still publish `tools/<tool>/`.
+For root app repos, deploy publishes `dist/`. Legacy `apps/<app>` workspaces
+can still publish `app-bundles/<app>/`.
 
 ## Platform Repo Deploy Script
 
@@ -71,7 +71,7 @@ Use `./deploy/deploy` for platform-level deployment from the Railcode source rep
 
 ```bash
 cp deploy/config.env.example deploy/config.env
-./deploy/deploy tools
+./deploy/deploy apps
 ./deploy/deploy backend
 ./deploy/deploy caddy
 ./deploy/deploy all
@@ -81,11 +81,11 @@ cp deploy/config.env.example deploy/config.env
 
 Commands:
 
-- `tools`: rsync all `tools/` folders to `/var/www/tools`.
-- `backend` or `api`: build `frontend`, build `sdk`, rsync `backend/` to `/opt/tools-api`, run `uv sync`, restart `tools-api`.
+- `apps`: rsync all `app-bundles/` folders to `/var/www/apps`.
+- `backend` or `api`: build `frontend`, build `sdk`, rsync `backend/` to `/opt/railcode-api`, run `uv sync`, restart `railcode-api`.
 - `caddy`: sync `Caddyfile` and reload Caddy.
-- `all`: backend, caddy, then tools.
-- `logs`: tail `sudo journalctl -u tools-api -f`.
+- `all`: backend, caddy, then apps.
+- `logs`: tail `sudo journalctl -u railcode-api -f`.
 
 Do not use a backend deploy for an app-only change unless the app change depends on SDK/backend behavior that has also changed.
 
@@ -118,14 +118,14 @@ After an app deploy:
 Open:
 
 ```text
-https://my-tool.<BASE_DOMAIN>/
+https://my-app.<BASE_DOMAIN>/
 ```
 
 Check:
 
 - Auth redirects to `auth.<BASE_DOMAIN>` when not logged in.
 - App loads `/_api/sdk.js` without CORS or mixed-content errors.
-- `me()` returns the expected user and tool.
+- `me()` returns the expected user and app.
 - KV/files reads and writes succeed.
 - SQL/LLM features show configured, empty, or disabled states cleanly.
 - Access policy in the admin UI matches the intended audience.

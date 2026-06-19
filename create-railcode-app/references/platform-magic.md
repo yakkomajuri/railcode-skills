@@ -4,37 +4,37 @@ Use this reference when an agent needs to explain or rely on Railcode's zero-con
 
 ## Request Routing
 
-Railcode apps are static tools served from subdomains:
+Railcode apps are static apps served from subdomains:
 
 ```text
-https://<tool>.<BASE_DOMAIN>/
+https://<app>.<BASE_DOMAIN>/
 ```
 
-On the server, Caddy maps each tool host to a static folder:
+On the server, Caddy maps each app host to a static folder:
 
 ```text
-/var/www/tools/<tool>/
+/var/www/apps/<app>/
 ```
 
 The same host also exposes the platform API at `/_api/*`. Because the browser calls same-origin URLs, app code does not need CORS configuration, API URLs, or credentials.
 
 Reserved subdomains such as `auth`, `api`, `www`, and `admin` cannot be app names.
 
-## Auth And Tool Identity
+## Auth And App Identity
 
 Railcode derives context from server-controlled request state:
 
 - User identity comes from a signed session cookie validated by Caddy and the backend.
 - Caddy strips any client-sent `X-User` header before forwarding.
 - Caddy injects trusted identity headers after `forward_auth` verifies the session.
-- Tool identity comes from the `Host` header, not from browser JavaScript.
+- App identity comes from the `Host` header, not from browser JavaScript.
 - CLI/API-token routes use `/v1/apps/{app}/...`, making the app explicit in the path.
 
-This is the core "magic": frontend code just calls `/_api/*`, and the backend knows both who is calling and which tool is calling.
+This is the core "magic": frontend code just calls `/_api/*`, and the backend knows both who is calling and which app is calling.
 
 ## SDK Surface
 
-Every tool can load:
+Every app can load:
 
 ```html
 <script src="/_api/sdk.js"></script>
@@ -44,7 +44,7 @@ The SDK attaches globals:
 
 ```js
 await me();
-await toolUsers();
+await appUsers();
 await db.collection("items").put("key", { ok: true });
 await db.collection("items").get("key");
 await files.upload("name.png", blob, "image/png");
@@ -57,7 +57,7 @@ The SDK also mounts a live inspector drawer that shows SDK activity. Do not hide
 
 ## Access Policies
 
-A tool without an access policy is closed until first deploy creates public
+An app without an access policy is closed until first deploy creates public
 access for signed-in users. Configure access later in the admin UI.
 
 Modes:
@@ -66,11 +66,11 @@ Modes:
 - `workspace`: available to authenticated workspace users.
 - `restricted`: available only to named users or domains.
 
-`toolUsers()` returns the current mode, known users, and whether the roster is complete. Restricted or domain-based access may not produce a complete roster; treat `complete: false` as "known users only".
+`appUsers()` returns the current mode, known users, and whether the roster is complete. Restricted or domain-based access may not produce a complete roster; treat `complete: false` as "known users only".
 
 ## KV Store
 
-`db.collection(name)` is a per-tool JSON key/value store. It is shared across that tool's allowed users.
+`db.collection(name)` is a per-app JSON key/value store. It is shared across that app's allowed users.
 
 Use shared keys for shared collaboration surfaces:
 
@@ -89,7 +89,7 @@ There is no server-side query language for KV. `list()` returns rows for the col
 
 ## Files
 
-Files are per-tool objects:
+Files are per-app objects:
 
 ```js
 await files.upload("logo.png", blob, "image/png");
@@ -152,8 +152,8 @@ Use `llm.stream()` for incremental text output. Include metadata for audit trail
 `railcode dev` preserves the same SDK calling style in local development:
 
 - Identity is `local-dev`.
-- Tool users report `mode: "local"`.
-- KV/files are local files under `~/.railcode/dev/<tool>`.
+- App users report `mode: "local"`.
+- KV/files are local files under `~/.railcode/dev/<app>`.
 - SQL, connections, and LLM forward to the configured Railcode backend only when the CLI has a saved API token.
 
 This lets agents build most app behavior without a live server and add production-backed SQL/LLM only when credentials and access are available.

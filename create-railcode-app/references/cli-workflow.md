@@ -20,14 +20,14 @@ The CLI stores config under `${RAILCODE_HOME:-~/.railcode}/config.json`. The def
 Run from an empty app repo root:
 
 ```bash
-mkdir my-tool
-cd my-tool
-railcode init my-tool
+mkdir my-app
+cd my-app
+railcode init my-app
 ```
 
 Behavior:
 
-- Validate tool names against `^[a-z0-9][a-z0-9-]{0,62}$`.
+- Validate app names against `^[a-z0-9][a-z0-9-]{0,62}$`.
 - Copy `cli/railcode-templates/railcode-react` into the current app root.
 - Replace `__RAILCODE_APP__` and `__RAILCODE_TITLE__` placeholders.
 - Refuse to initialize a non-empty app root unless `--force` is passed. Existing `.git` and `.DS_Store` are ignored for this check.
@@ -57,16 +57,16 @@ railcode dev --command "npm run dev -- --host 127.0.0.1 --port 5173"
 App detection order:
 
 - `--app` option or positional app argument.
-- `railcode.json` `app` or `tool`.
-- App name inferred from an `apps/<tool>` or `tools/<tool>` path for legacy workspaces.
+- `railcode.json` `app`.
+- App name inferred from an `apps/<app>` or `app-bundles/<app>` path for legacy workspaces.
 - The only app under `apps/` if exactly one exists.
 - `notes` for legacy/demo workspaces when present.
-- Current directory basename if it matches the tool-name regex.
+- Current directory basename if it matches the app-name regex.
 
 Root and asset server detection:
 
 - If `railcode.json` has `dev.root`, use it relative to the manifest.
-- Otherwise infer from `apps/<tool>` or `tools/<tool>` for legacy workspaces.
+- Otherwise infer from `apps/<app>` or `app-bundles/<app>` for legacy workspaces.
 - If the root has `package.json` with a `dev` script, run it.
 - Prefer `pnpm`, then `yarn`, otherwise `npm`.
 - Run `npm ci` when a package-lock exists and dependencies are missing; otherwise run the package manager's normal install.
@@ -74,16 +74,16 @@ Root and asset server detection:
 Local API behavior:
 
 - `/_api/sdk.js`: serve the bundled SDK from the CLI package or source checkout.
-- `/_api/me`: return `{ user: "local-dev", tool, app }`.
-- `/_api/tool-users`: return local mode with an empty complete roster.
-- `/_api/kv/*`: store JSON in `~/.railcode/dev/<tool>/kv.json`.
-- `/_api/files/*`: store files in `~/.railcode/dev/<tool>/files/` and metadata in `files.json`.
+- `/_api/me`: return `{ user: "local-dev", app }`.
+- `/_api/app-users`: return local mode with an empty complete roster.
+- `/_api/kv/*`: store JSON in `~/.railcode/dev/<app>/kv.json`.
+- `/_api/files/*`: store files in `~/.railcode/dev/<app>/files/` and metadata in `files.json`.
 - `/_api/connections`: return `[]` unless a saved API token exists.
-- Other `/_api/*`: forward to `<api-url>/v1/apps/<tool>/*` with bearer auth when logged in.
+- Other `/_api/*`: forward to `<api-url>/v1/apps/<app>/*` with bearer auth when logged in.
 
 If the remote backend rejects forwarded local-dev calls with `401` or `403`, `connections()` becomes `[]`; other backend-backed calls return a `502` explaining that local identity/KV/files still work.
 
-## Deploy A Tool With The CLI
+## Deploy An App With The CLI
 
 ```bash
 railcode deploy
@@ -91,13 +91,13 @@ railcode deploy
 
 Deploy behavior:
 
-- Infers the app from `railcode.json` `app`/`tool`, or from the current directory.
+- Infers the app from `railcode.json` `app`, or from the current directory.
 - Runs the app's `build` script when one exists, installing dependencies first when missing.
-- Publishes `dist/` for root app repos. Legacy workspace apps can still publish `tools/<tool>/`.
-- Uploads the static files over HTTP to `api.<domain>/v1/apps/<tool>/deploy`.
+- Publishes `dist/` for root app repos. Legacy workspace apps can still publish `app-bundles/<app>/`.
+- Uploads the static files over HTTP to `api.<domain>/v1/apps/<app>/deploy`.
 - Uses a saved API token, prompts for login when needed, or reads `RAILCODE_API_TOKEN` for non-interactive runs.
 - On first deploy, creates public access for signed-in users.
-- Prints the live tool URL after a successful upload.
+- Prints the live app URL after a successful upload.
 
 The deploy API accepts admins for any app, existing app owners for apps where
 the access policy grants them `owner`, and any authenticated user for an
@@ -108,9 +108,9 @@ Optional `railcode.json` URL:
 
 ```json
 {
-  "app": "my-tool",
+  "app": "my-app",
   "deploy": {
-    "apiUrl": "https://api.tools.example.com"
+    "apiUrl": "https://api.apps.example.com"
   }
 }
 ```
