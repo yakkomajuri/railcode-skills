@@ -56,8 +56,8 @@ await llm.generate("Summarize this record.", { metadata: { feature: "summary" } 
 The SDK also ships a live inspector drawer that logs SDK activity (every `db`,
 `sql`, `llm`, `files`, `me()`, `appUsers()` call). It is hidden by default and
 has no on-screen affordance, so end users never see it; toggle it open with
-`Cmd+L` (mac) / `Ctrl+L` while developing. Do not hide SDK errors; surface
-useful error states in the app.
+`` Ctrl+` `` (control + backtick) while developing. Do not hide SDK errors;
+surface useful error states in the app.
 
 ## Access Policies
 
