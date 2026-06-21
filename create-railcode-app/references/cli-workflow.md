@@ -81,7 +81,7 @@ Local API behavior:
 - `/_api/connections`: return `[]` unless a saved API token exists.
 - Other `/_api/*`: forward to `<api-url>/v1/apps/<app>/*` with bearer auth when logged in.
 
-If the remote backend rejects forwarded local-dev calls with `401` or `403`, `connections()` becomes `[]`; other backend-backed calls return a `502` explaining that local identity/KV/files still work.
+If the remote backend rejects forwarded local-dev calls with `401` or `403`, `databaseConnectors()` becomes `[]`; other backend-backed calls return a `502` explaining that local identity/KV/files still work.
 
 ## Deploy An App With The CLI
 

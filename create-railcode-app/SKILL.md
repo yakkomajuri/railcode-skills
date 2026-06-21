@@ -116,7 +116,7 @@ Load only the reference needed for the task:
 
 Build the app as a static browser app. Do not add app-specific backend services, API keys, auth code, or hardcoded Railcode URLs unless the user explicitly asks for platform work. Browser code should call same-origin `/_api/*` through the Railcode SDK.
 
-Use the starter's wrappers in `src/lib/railcode.ts` after `loadRailcodeSdk()` has loaded `/_api/sdk.js`. The global SDK surface is `me()`, `appUsers()`, `db.collection()`, `files`, `databaseConnectors()`, the per-engine `postgres('name').runSQL()` / `mysql('name').runSQL()` namespaces, and `llm`. (`sql()` and `connections()` remain as deprecated aliases.)
+Use the starter's wrappers in `src/lib/railcode.ts` after `loadRailcodeSdk()` has loaded `/_api/sdk.js`. The global SDK surface is `me()`, `appUsers()`, `db.collection()`, `files`, `databaseConnectors()`, the per-engine `postgres('name').runSQL()` / `mysql('name').runSQL()` namespaces, and `llm`.
 
 ## Visual Direction
 

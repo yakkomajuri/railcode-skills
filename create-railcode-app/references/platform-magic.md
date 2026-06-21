@@ -140,7 +140,6 @@ Rules:
 - Never concatenate user input into SQL.
 - Call `databaseConnectors()` to discover configured connections as `{ engine, name }`.
 - Expect `databaseConnectors()` to be empty in unauthenticated local dev.
-- `sql(query, params, { connection })` and `connections()` still work as deprecated aliases.
 
 ## LLM
 
