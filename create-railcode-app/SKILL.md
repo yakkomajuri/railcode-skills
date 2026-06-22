@@ -28,8 +28,8 @@ This skill ships through the open agent-skills ecosystem (the `skills` CLI), so 
 commands work across Claude Code, Codex, Cursor, and other agents:
 
 ```bash
-npx skills add yakkomajuri/railcode --skill create-railcode-app   # install
-npx skills update create-railcode-app                             # update
+npx skills add yakkomajuri/railcode-skills --skill create-railcode-app   # install
+npx skills update create-railcode-app                                    # update
 ```
 
 ## Build Process (follow in order)
