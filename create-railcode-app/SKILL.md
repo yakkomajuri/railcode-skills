@@ -22,10 +22,6 @@ Both commands pull the latest, so they converge — after running them the print
 matches the target. If a `railcode` command or flag documented here is missing or errors
 unexpectedly, suspect version drift first and re-check this.
 
-When releasing this skill after a CLI update, run `railcode skill stamp
-create-railcode-app/SKILL.md` to pin the `Railcode CLI <version>` marker to the
-current CLI version, then bump this skill's frontmatter `version`.
-
 ## Installing & Updating This Skill
 
 This skill ships through the open agent-skills ecosystem (the `skills` CLI), so the same
