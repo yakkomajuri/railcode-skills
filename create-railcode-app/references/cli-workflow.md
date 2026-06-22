@@ -74,14 +74,14 @@ Root and asset server detection:
 Local API behavior:
 
 - `/_api/sdk.js`: serve the bundled SDK from the CLI package or source checkout.
-- `/_api/me`: return `{ user: "local-dev", app }`.
+- `/_api/me`: return `{ user: "local-dev", display_name: "Local Dev", app }`.
 - `/_api/app-users`: return local mode with an empty complete roster.
 - `/_api/kv/*`: store JSON in `~/.railcode/dev/<app>/kv.json`.
 - `/_api/files/*`: store files in `~/.railcode/dev/<app>/files/` and metadata in `files.json`.
 - `/_api/connections`: return `[]` unless a saved API token exists.
 - Other `/_api/*`: forward to `<api-url>/v1/apps/<app>/*` with bearer auth when logged in.
 
-If the remote backend rejects forwarded local-dev calls with `401` or `403`, `databaseConnectors()` becomes `[]`; other backend-backed calls return a `502` explaining that local identity/KV/files still work.
+If the remote backend rejects forwarded local-dev calls with `401` or `403`, `dataConnectors()` becomes `[]`; other backend-backed calls return a `502` explaining that local identity/KV/files still work.
 
 ## Deploy An App With The CLI
 

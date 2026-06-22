@@ -48,7 +48,7 @@ await appUsers();
 await db.collection("items").put("key", { ok: true });
 await db.collection("items").get("key");
 await files.upload("name.png", blob, "image/png");
-await databaseConnectors();
+await dataConnectors();
 await postgres("analytics").runSQL("select * from orders where id = $1", [id]);
 await llm.generate("Summarize this record.", { metadata: { feature: "summary" } });
 ```
@@ -143,8 +143,8 @@ Rules:
 - Treat SQL as read-only.
 - Always use `$1`, `$2`, ... placeholders and a params array.
 - Never concatenate user input into SQL.
-- Call `databaseConnectors()` to discover configured connections as `{ engine, name }`.
-- Expect `databaseConnectors()` to be empty in unauthenticated local dev.
+- Call `dataConnectors()` to discover configured connections as `{ engine, name }`; `databaseConnectors()` is a compatibility alias.
+- Expect `dataConnectors()` to be empty in unauthenticated local dev.
 
 ## LLM
 

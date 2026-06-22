@@ -1,14 +1,14 @@
 ---
 name: create-railcode-app
 description: Build, modify, debug, and deploy Railcode static apps end-to-end. Use when creating a Railcode app from an idea, using the Railcode CLI, wiring the zero-config SDK globals, explaining Railcode auth/data "magic", testing with railcode dev, configuring access policies, or deploying apps to a Railcode server.
-version: 0.1.0
+version: 0.1.2
 ---
 
 # Create Railcode App
 
 ## Version Check (run first)
 
-This skill targets **Railcode CLI 0.1.0**.
+This skill targets **Railcode CLI 0.1.2**.
 
 Run `railcode --version`. If the printed version does not match the target above, the
 skill and CLI are out of sync. Update both, then continue with the refreshed skill:
@@ -21,6 +21,10 @@ npx skills update create-railcode-app
 Both commands pull the latest, so they converge — after running them the printed version
 matches the target. If a `railcode` command or flag documented here is missing or errors
 unexpectedly, suspect version drift first and re-check this.
+
+When releasing this skill after a CLI update, run `railcode skill stamp
+create-railcode-app/SKILL.md` to pin the `Railcode CLI <version>` marker to the
+current CLI version, then bump this skill's frontmatter `version`.
 
 ## Installing & Updating This Skill
 
@@ -116,7 +120,7 @@ Load only the reference needed for the task:
 
 Build the app as a static browser app. Do not add app-specific backend services, API keys, auth code, or hardcoded Railcode URLs unless the user explicitly asks for platform work. Browser code should call same-origin `/_api/*` through the Railcode SDK.
 
-Use the starter's wrappers in `src/lib/railcode.ts` after `loadRailcodeSdk()` has loaded `/_api/sdk.js`. The global SDK surface is `me()`, `appUsers()`, `db.collection()`, `files`, `databaseConnectors()`, the per-engine `postgres('name').runSQL()` / `mysql('name').runSQL()` namespaces, and `llm`.
+Use the starter's wrappers in `src/lib/railcode.ts` after `loadRailcodeSdk()` has loaded `/_api/sdk.js`. The global SDK surface is `me()`, `appUsers()`, `db.collection()`, `files`, `dataConnectors()` (`databaseConnectors()` is a compatibility alias), the per-engine `postgres('name').runSQL()` / `mysql('name').runSQL()` namespaces, and `llm`.
 
 ## Visual Direction
 

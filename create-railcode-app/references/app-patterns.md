@@ -148,7 +148,7 @@ const rows = await postgres("analytics").runSQL(
 );
 ```
 
-Use `mysql("name").runSQL(...)` for a MySQL connection; the namespace must match the connection's engine. Use user-selected filters only as params. Show a useful empty state when `databaseConnectors()` is empty or a connection is not configured.
+Use `mysql("name").runSQL(...)` for a MySQL connection; the namespace must match the connection's engine. Use user-selected filters only as params. Show a useful empty state when `dataConnectors()` is empty or a connection is not configured.
 
 ## LLM Pattern
 
