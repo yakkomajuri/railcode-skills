@@ -83,6 +83,16 @@ Local API behavior:
 
 If the remote backend rejects forwarded local-dev calls with `401` or `403`, `dataConnectors()` becomes `[]`; other backend-backed calls return a `502` explaining that local identity/KV/files still work.
 
+## Read The Design System
+
+```bash
+railcode get design-system
+```
+
+The command prints the configured platform design-system markdown directly to stdout.
+It accepts `--api-url`, otherwise it uses the saved CLI config, `railcode.json`
+`deploy.apiUrl`, or `RAILCODE_API_URL`.
+
 ## Deploy An App With The CLI
 
 ```bash

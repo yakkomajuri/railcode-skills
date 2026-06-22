@@ -1,14 +1,14 @@
 ---
 name: create-railcode-app
 description: Build, modify, debug, and deploy Railcode static apps end-to-end. Use when creating a Railcode app from an idea, using the Railcode CLI, wiring the zero-config SDK globals, explaining Railcode auth/data "magic", testing with railcode dev, configuring access policies, or deploying apps to a Railcode server.
-version: 0.1.3
+version: 0.1.4
 ---
 
 # Create Railcode App
 
 ## Version Check (run first)
 
-This skill targets **Railcode CLI 0.1.3**.
+This skill targets **Railcode CLI 0.1.4**.
 
 Run `railcode --version`. If the printed version does not match the target above, the
 skill and CLI are out of sync. Update both, then continue with the refreshed skill:
@@ -62,11 +62,11 @@ If the user chose the Railcode design system, pull it before writing any UI:
 
 ```bash
 railcode login                                       # once, if not already logged in
-railcode design-system pull .railcode/design-system.md
+railcode get design-system
 ```
 
-Read that file and make the app follow it. The pull needs a logged-in CLI and a reachable
-Railcode server. If the user wants a custom direction instead, or the pull returns empty
+Use the command output as the active design direction. The command needs a logged-in CLI
+and a reachable Railcode server. If the user wants a custom direction instead, or it returns empty
 (no admin has configured one), or there is no server to log in to, skip it and use the
 fallback in the **Visual Direction** section.
 
@@ -126,7 +126,7 @@ Use the starter's wrappers in `src/lib/railcode.ts` after `loadRailcodeSdk()` ha
 
 Treat the starter/template app as functional scaffolding, not a style guide. Do not copy its visual style into new apps unless the active design system calls for it.
 
-If the user opted into the Railcode design system, pull it first with `railcode design-system pull` (see Build Process step 2) and make the app follow it. When no design system is configured or reachable — or the user wants a different look — default to the Railcode design system: quiet internal-tool UI, neutral surfaces, compact controls, clear tables/lists, modest borders/radius, and restrained accent color.
+If the user opted into the Railcode design system, fetch it first with `railcode get design-system` (see Build Process step 2) and make the app follow it. When no design system is configured or reachable — or the user wants a different look — default to the Railcode design system: quiet internal-tool UI, neutral surfaces, compact controls, clear tables/lists, modest borders/radius, and restrained accent color.
 
 Apps must be responsive. Verify the main workflows work cleanly on desktop and mobile widths, with no overlapping text, clipped controls, or unusable tables.
 
