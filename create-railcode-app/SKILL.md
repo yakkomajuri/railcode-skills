@@ -8,7 +8,7 @@ version: 0.1.4
 
 ## Version Check (run first)
 
-This skill targets **Railcode CLI 0.1.4**.
+This skill targets **Railcode CLI 0.1.5**.
 
 Run `railcode --version`. If the printed version does not match the target above, the
 skill and CLI are out of sync. Update both, then continue with the refreshed skill:
@@ -170,6 +170,28 @@ railcode deploy
 - **Which server** — set `deploy.apiUrl` in `railcode.json`, or `RAILCODE_API_URL`, or rely on the saved CLI config from `railcode login`.
 - **Auth** — it uses the saved API token, prompts for a browser login when needed, or reads `RAILCODE_API_TOKEN` for non-interactive runs.
 
-On first deploy the app is created with public access for signed-in users, and the command prints the live URL. Tighten access later in the admin UI if the app is sensitive. For DNS, platform deploys, access-policy deploys, and verification, read the [Deployment reference](references/deployment.md).
+On first deploy the app is created with public access for signed-in users, and the command prints the live URL. For a sensitive app, deploy it owner-only from the very first deploy instead of publishing then locking down:
+
+```bash
+railcode deploy --private    # first deploy is owner-only (no public window)
+railcode deploy --public     # explicit default: anyone signed in
+```
+
+Or set it declaratively so plain `railcode deploy` is private:
+
+```json
+{ "app": "my-app", "deploy": { "access": "private" } }
+```
+
+The flag wins over `deploy.access`. This only sets the initial policy on first deploy; redeploys keep whatever policy the app already has. Change access later from the CLI with `railcode access` (or in the admin UI):
+
+```bash
+railcode access              # show the app's current access
+railcode access public       # anyone signed in (workspace)
+railcode access private      # just the owner
+railcode access restricted --users a@b.com,c@d.com   # named users only
+```
+
+`railcode access` runs from the app directory, uses the same server/auth resolution as `railcode deploy`, and only works once the app has been deployed at least once. Only the app owner or an admin can change access. For DNS, platform deploys, access-policy deploys, and verification, read the [Deployment reference](references/deployment.md).
 
 Deploying an app (`railcode deploy`) is separate from updating the Railcode platform itself (a Docker Compose / Ansible flow in `deploy/ansible/`, also wired to a GitHub Action on pushes to `main`) — that only matters when the user runs the server, not when building apps on it.

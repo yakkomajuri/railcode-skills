@@ -60,10 +60,29 @@ When no API token is saved, `railcode deploy` prompts for login and creates one.
 For non-interactive deploys, set `RAILCODE_API_TOKEN`.
 
 When the app has no access policy yet, deploy creates public access for
-signed-in users. The CLI prints the live app URL after upload.
+signed-in users by default, or an owner-only policy with `railcode deploy
+--private` (or `railcode.json` `deploy.access: "private"`) so a sensitive app is
+never briefly public. This initial choice applies only to the first deploy;
+redeploys preserve the existing policy. The CLI prints the live app URL after
+upload.
 
 For root app repos, deploy publishes `dist/`. Legacy `apps/<app>` workspaces
 can still publish `app-bundles/<app>/`.
+
+## Change App Access
+
+After an app exists, the owner (or an admin) can change its access from the CLI
+without opening the admin UI:
+
+```bash
+railcode access                                      # show current access
+railcode access public                               # anyone signed in (workspace)
+railcode access private                              # just the owner
+railcode access restricted --users a@b.com,c@d.com   # named users only
+```
+
+This hits `api.<domain>/v1/apps/<app>/access` with the same auth as deploy. The
+admin UI still offers the same control for owners who prefer a browser.
 
 ## Platform Updates
 

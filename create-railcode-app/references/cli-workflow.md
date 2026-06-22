@@ -99,7 +99,7 @@ It accepts `--api-url`, otherwise it uses the saved CLI config, `railcode.json`
 ## Deploy An App With The CLI
 
 ```bash
-railcode deploy
+railcode deploy [--private | --public]
 ```
 
 Deploy behavior:
@@ -109,7 +109,9 @@ Deploy behavior:
 - Publishes `dist/` for root app repos. Legacy workspace apps can still publish `app-bundles/<app>/`.
 - Uploads the static files over HTTP to `api.<domain>/v1/apps/<app>/deploy`.
 - Uses a saved API token, prompts for login when needed, or reads `RAILCODE_API_TOKEN` for non-interactive runs.
-- On first deploy, creates public access for signed-in users.
+- On first deploy, creates the access policy: public for signed-in users by default, or owner-only with `--private`. `--public` is the explicit default; `--private` and `--public` are mutually exclusive.
+- `railcode.json` `deploy.access` (`"public"` or `"private"`) sets the same initial policy without a flag; the flag wins when both are present. `restricted` is not valid here — deploy, then run `railcode access restricted --users <...>`.
+- The initial access applies only when the policy is first created. Redeploys keep the existing policy (deploy reports `existing_policy`); the CLI hints to use `railcode access` if `--private`/`--public` was passed on a redeploy.
 - Prints the live app URL after a successful upload.
 
 The deploy API accepts admins for any app, existing app owners for apps where
@@ -127,3 +129,21 @@ Optional `railcode.json` URL:
   }
 }
 ```
+
+## Set App Access With The CLI
+
+```bash
+railcode access                                      # show current access
+railcode access public                               # anyone signed in (workspace)
+railcode access private                              # just the owner
+railcode access restricted --users a@b.com,c@d.com   # named users only
+```
+
+Access behavior:
+
+- Infers the app and resolves the server/auth exactly like `railcode deploy` (run it from the app directory).
+- `GET`s or `PUT`s `api.<domain>/v1/apps/<app>/access` with the saved API token (or `RAILCODE_API_TOKEN`).
+- Modes map to server policy modes: `public` is an alias for `workspace`; `private` is owner-only; `restricted` grants the listed users plus the owner.
+- `--users` takes a comma-separated list of existing Railcode users and is only valid with `restricted`.
+- The app must be deployed at least once first (it needs an owner); a never-deployed app returns 404.
+- Only the app owner or an admin may change access; others get a 403. The same change is also available in the admin UI.

@@ -67,7 +67,8 @@ surface useful error states in the app.
 ## Access Policies
 
 An app without an access policy is closed until first deploy creates public
-access for signed-in users. Configure access later in the admin UI.
+access for signed-in users. Configure access later from the CLI with
+`railcode access <public|private|restricted>` or in the admin UI.
 
 Modes:
 
