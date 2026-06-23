@@ -78,6 +78,36 @@ Modes:
 
 `appUsers()` returns the current mode, known users, optional display names, and whether the roster is complete. Restricted or domain-based access may not produce a complete roster; treat `complete: false` as "known users only".
 
+## Network Mode
+
+Network mode is a per-app, admin-controlled Content-Security-Policy that Caddy enforces on
+the app's pages. It governs **where the app's browser code may send requests** — distinct
+from access policy above, which governs **who may open the app**. (Note that `restricted`
+happens to name both an access-policy mode and a network mode; they are unrelated concepts.)
+
+New apps snapshot the platform default network mode at creation time. Admins configure that
+default (it ships as `restricted`); changing the default later does not move existing apps.
+App builders cannot change the mode — they build to fit it. App code can read its own mode
+at runtime with `GET /_api/mode`, which returns `{ "app", "mode" }`, and the builder can see
+the platform default from the CLI with `railcode network`.
+
+The three modes:
+
+- `open`: no CSP. The app may `fetch()` any origin; inline scripts and external CDNs are
+  fine. (Legacy behavior.)
+- `restricted`: CSP `connect-src 'self'`. The browser blocks `fetch`/XHR/WebSocket to any
+  other origin. Inline scripts and external CDN/font assets still load. All app data must go
+  through the same-origin SDK (`/_api`): KV, files, `postgres()/mysql().runSQL()`, `llm`,
+  `me()/appUsers()`. There is no general outbound HTTP proxy — third-party data must arrive
+  via an admin-configured SQL connector or `llm`, never a direct external `fetch()`.
+- `sandboxed`: CSP `default-src 'self'`; same-origin only. On top of `restricted`: no inline
+  `<script>`, no external CDN/font `<link>`/`<script src>`, no remote images. Bundle every
+  asset locally and load the SDK via the same-origin `<script src="/_api/sdk.js">` tag
+  (allowed, `src` is same-origin) or `loadRailcodeSdk()`.
+
+Building to the same-origin SDK already satisfies `restricted`; `sandboxed` additionally
+forbids inline scripts and remote assets.
+
 ## KV Store
 
 `db.collection(name)` is a per-app JSON key/value store. It is shared across that app's allowed users.

@@ -1,14 +1,14 @@
 ---
 name: create-railcode-app
 description: Build, modify, debug, and deploy Railcode static apps end-to-end. Use when creating a Railcode app from an idea, using the Railcode CLI, wiring the zero-config SDK globals, explaining Railcode auth/data "magic", testing with railcode dev, configuring access policies, or deploying apps to a Railcode server.
-version: 0.1.5
+version: 0.1.6
 ---
 
 # Create Railcode App
 
 ## Version Check (run first)
 
-This skill targets **Railcode CLI 0.1.6**.
+This skill targets **Railcode CLI 0.1.7**.
 
 Run `railcode --version`. If the printed version does not match the target above, the
 skill and CLI are out of sync. Update both, then continue with the refreshed skill:
@@ -51,6 +51,10 @@ least:
   design direction?"* (drives step 2)
 - **Browser testing** — *"Should I test my changes in a browser before calling it done?"*
   (drives step 4)
+- **Network mode** — run `railcode network` to see the network mode new apps get (it's
+  admin-controlled and per-app), then build to fit it. The common default `restricted`
+  means no direct external `fetch()` — all data flows through the same-origin SDK. See the
+  **Network mode (admin-controlled)** subsection under **Implementation Rules**.
 
 ### 2. Fetch the design system (if the user wants it)
 
@@ -117,6 +121,33 @@ Load only the reference needed for the task:
 Build the app as a static browser app. Do not add app-specific backend services, API keys, auth code, or hardcoded Railcode URLs unless the user explicitly asks for platform work. Browser code should call same-origin `/_api/*` through the Railcode SDK.
 
 Use the starter's wrappers in `src/lib/railcode.ts` after `loadRailcodeSdk()` has loaded `/_api/sdk.js`. The global SDK surface is `me()`, `appUsers()`, `db.collection()`, `files`, `dataConnectors()` (`databaseConnectors()` is a compatibility alias), the per-engine `postgres('name').runSQL()` / `mysql('name').runSQL()` namespaces, and `llm`.
+
+### Network mode (admin-controlled)
+
+Each app has a per-app **network mode** — a Content-Security-Policy the platform (Caddy)
+enforces on the app's pages. App builders cannot change it; you build to fit it. New apps
+are created with the platform default (snapshot at creation), which ships as `restricted`.
+Run `railcode network` to see the current default, and read the app's own mode at runtime
+via `GET /_api/mode` (returns `{ "app", "mode" }`). There is no app-builder command to
+change a mode — admins set the default and flip individual apps from the admin console.
+
+The three modes:
+
+- **`open`** — no CSP. The app may `fetch()` any origin; inline scripts and external CDNs
+  are fine. (Legacy behavior.)
+- **`restricted`** — CSP `connect-src 'self'`. The browser blocks `fetch`/XHR/WebSocket to
+  any other origin. Inline scripts and external CDN/font assets still load. All app data
+  must go through the same-origin SDK (`/_api`): KV, files, `postgres()/mysql().runSQL()`,
+  `llm`, `me()/appUsers()`. There is no general outbound HTTP proxy — third-party data must
+  arrive via an admin-configured SQL connector or `llm`, never a direct external `fetch()`.
+- **`sandboxed`** — CSP `default-src 'self'`; same-origin only. On top of `restricted`: no
+  inline `<script>`, no external CDN/font `<link>`/`<script src>`, no remote images. Bundle
+  every asset locally and load the SDK via the same-origin `<script src="/_api/sdk.js">`
+  tag (allowed, `src` is same-origin) or `loadRailcodeSdk()`.
+
+Building to the same-origin SDK — already the core guidance above — **already satisfies
+`restricted`**. `sandboxed` additionally forbids inline scripts and remote assets, so bundle
+assets locally and avoid inline `<script>` when targeting it.
 
 ## Visual Direction
 

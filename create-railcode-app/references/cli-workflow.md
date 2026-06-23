@@ -96,6 +96,21 @@ The command prints the configured platform design-system markdown directly to st
 It accepts `--api-url`, otherwise it uses the saved CLI config, `railcode.json`
 `deploy.apiUrl`, or `RAILCODE_API_URL`.
 
+## Check The Network Mode
+
+```bash
+railcode network
+```
+
+Prints the platform default network mode — the per-app Content-Security-Policy mode new
+apps are created with (`open`, `restricted`, or `sandboxed`; ships as `restricted`). It is
+admin-controlled and tells the builder how to build; there is no builder command to change
+a mode. Admins set the default and flip individual apps from the admin console. The command
+takes no arguments and resolves the server like the others (`--api-url`, then
+`RAILCODE_API_URL`, then `railcode.json` `deploy.apiUrl`, then saved config). See the
+**Network Mode** section in [platform-magic.md](platform-magic.md) for what each mode
+allows and forbids.
+
 ## Query Data Connectors
 
 List the admin-configured database connectors, or run a read-only SQL query
