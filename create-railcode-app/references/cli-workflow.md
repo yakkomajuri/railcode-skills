@@ -96,6 +96,29 @@ The command prints the configured platform design-system markdown directly to st
 It accepts `--api-url`, otherwise it uses the saved CLI config, `railcode.json`
 `deploy.apiUrl`, or `RAILCODE_API_URL`.
 
+## Query Data Connectors
+
+List the admin-configured database connectors, or run a read-only SQL query
+against one, from the terminal. These hit the same global connector registry the
+in-app SDK uses (`dataConnectors()` / `postgres('name').runSQL()`), authenticated
+with the saved CLI token.
+
+```bash
+railcode db list
+railcode db query "select id, email from users limit 5"
+railcode db query "select * from orders where total > $1" --params '[100]'
+railcode db query "select 1" --connection analytics --engine mysql
+```
+
+Behavior:
+
+- `db list` prints each connector's name and engine (`GET /v1/connections`). `--json` prints the raw array.
+- `db query "<sql>"` runs the SQL against a connector (`POST /v1/sql`) and prints a table, plus a row count and a truncation note when the server caps results at 1000 rows. `--json` prints the raw `{ columns, rows, rowcount, truncated }` envelope.
+- `--connection <name>` selects the connector (default `default`). `--params '<json-array>'` supplies `$1, $2, ...` placeholder values. `--file <path>` reads SQL from a file instead of an argument.
+- The engine is inferred from the named connector; pass `--engine <postgres|mysql>` to override. A name/engine mismatch fails loudly (404), same as the SDK.
+- Queries are read-only. Always use placeholders plus `--params`, never string interpolation.
+- Resolves the server like the other commands: `--api-url`, then `RAILCODE_API_URL`, then `railcode.json` `deploy.apiUrl`, then saved config. Reads `RAILCODE_API_TOKEN` for non-interactive runs.
+
 ## Deploy An App With The CLI
 
 ```bash
