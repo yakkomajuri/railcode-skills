@@ -132,7 +132,7 @@ const url = files.url(file.name);        // use directly in <img src> / fetch
 await files.delete(file.name);
 ```
 
-The global is `files` (not `fileStore`). Keep file names flat — no `/` folders. For
+The file API is the global `files`. Keep file names flat — no `/` folders. For
 user-supplied names, generate a stable id for the file name and keep the display name in KV.
 
 ## SQL Pattern (Postgres)
@@ -144,8 +144,8 @@ const rows = await postgres("analytics").runSQL(
 );
 ```
 
-Only the **postgres** engine exists (no `mysql` namespace). `postgres.runSQL(...)` with no
-name uses the connection named `default`. Pass user-selected filters only as `$1, $2, …`
+`postgres` is the only database engine today. `postgres.runSQL(...)` with no name uses the
+connection named `default`. Pass user-selected filters only as `$1, $2, …`
 params. Show a useful empty state when `dataConnectors()` is empty or a connection isn't
 configured. `rows` is an array of row objects with `rows.columns` / `rows.rowcount` /
 `rows.truncated` metadata.

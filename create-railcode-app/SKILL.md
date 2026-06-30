@@ -1,14 +1,14 @@
 ---
 name: create-railcode-app
 description: Build, modify, debug, and deploy Railcode static apps end-to-end. Use when creating a Railcode app from an idea, using the Railcode CLI, wiring the zero-config SDK globals, explaining Railcode auth/data "magic", testing with railcode dev, understanding app access, or deploying apps to a Railcode server.
-version: 0.1.7
+version: 0.1.8
 ---
 
 # Create Railcode App
 
 ## Version Check (run first)
 
-This skill targets **Railcode CLI 0.1.9** (the multi-tenant Railcode platform).
+This skill targets **Railcode CLI 0.1.10** (the multi-tenant Railcode platform).
 
 Run `railcode --version`. If the printed version does not match the target above, the
 skill and CLI may be out of sync. Update both, then continue with the refreshed skill:
@@ -19,9 +19,9 @@ npx skills update create-railcode-app
 ```
 
 Both commands pull the latest, so they converge — after running them the printed version
-should match the target. There is no `railcode upgrade` subcommand; the CLI is an npm
-package, so upgrade it through your package manager. If a `railcode` command or flag
-documented here is missing or errors unexpectedly, suspect version drift first and
+should match the target. The CLI is a regular npm package, so upgrade it through your
+package manager. If a `railcode` command or flag documented here is missing or errors
+unexpectedly, suspect version drift first and
 re-check this.
 
 ## Installing & Updating This Skill
@@ -97,15 +97,7 @@ railcode dev                  # local server with an emulated /_api
 railcode deploy               # build (if configured) + upload to your org
 ```
 
-If `railcode` is unavailable in a source checkout, build and link the CLI first (the
-multi-tenant repo uses **pnpm**):
-
-```bash
-cd cli
-pnpm install
-pnpm build
-pnpm link --global
-```
+The CLI is the npm package `railcode` (`npm install -g railcode@latest`).
 
 Use lowercase app names with digits and dashes only (a DNS label: `^[a-z0-9][a-z0-9-]{0,62}$`).
 `railcode init <app>` scaffolds a single self-contained app directory `./<app>/` — there is
@@ -120,7 +112,7 @@ Load only the reference needed for the task:
 - [CLI workflow](references/cli-workflow.md): exact `railcode` commands (login/init/dev/deploy/design-system) and local dev/deploy behavior.
 - [Platform magic](references/platform-magic.md): how same-origin auth, `/_api/sdk.js`, app/org identity, access policies, KV/files, SQL, service connectors, and LLM work.
 - [App patterns](references/app-patterns.md): implementation patterns for React/Vite apps, using the SDK globals, data modeling, SQL, connectors, LLM, and frontend expectations.
-- [Deployment](references/deployment.md): `railcode deploy`, app access, a local stack to test against, and post-deploy verification.
+- [Deployment](references/deployment.md): `railcode deploy`, app access, and post-deploy verification.
 
 ## Implementation Rules
 
@@ -141,8 +133,7 @@ directly (in TypeScript, `declare` them or add an ambient `.d.ts`). The global S
 - `llm` → `llm.generate(input, opts)` and the streaming `llm.stream(input, opts)`.
 - `postgres('name').runSQL(query, params)` (or `postgres.runSQL(...)` for the connection
   named `default`); `dataConnectors()` lists configured connections as `{ engine, name }`.
-  Only the **postgres** engine is supported today — there is no `mysql` namespace and no
-  `databaseConnectors()` alias.
+  `postgres` is the only database engine today.
 - `connector('name').fetch(path, opts)` → call an admin-configured third-party SaaS API
   through the server-side proxy (the credential never reaches the browser);
   `serviceConnectors()` lists the connectors this app may call.
@@ -183,10 +174,7 @@ pnpm build
 ```
 
 The no-build **static** template has no build step — just confirm the files load via
-`railcode dev`. When changing the CLI, SDK, backend, deployment workflow, or platform
-behavior, run the relevant project checks in addition to the app build. Typical checks are
-`pnpm build` in changed Node packages (the repo uses **pnpm**) and, for backend changes,
-`cd backend && uv run pytest && uv run ruff check`.
+`railcode dev`.
 
 If the user asked for browser testing (Build Process step 1), also exercise the running app before handing off. Start `railcode dev`, then open the printed local URL, usually `http://127.0.0.1:7331`, with whatever browser tooling you have — a browser-automation MCP, browser-use, or your harness's built-in browser. Load the app, walk the primary workflow end to end, and confirm it works at both desktop and mobile widths. Treat console errors, failed `/_api/*` calls, and broken layouts as failures to fix, not ship.
 
@@ -209,9 +197,8 @@ The app is **created-or-resolved by slug in your saved org**, then the live URL 
 ### Access
 
 A newly created app defaults to **`organization`** access — every member of your org can
-open it. There is **no `railcode access` CLI command and no `--private`/`--public` deploy
-flags** in the multi-tenant CLI; access is managed in the **admin UI** (or via
-`PUT /api/organizations/{org}/apps/{app}/access`). The three modes are:
+open it. Access is set in the **admin UI** (or via
+`PUT /api/organizations/{org}/apps/{app}/access`), not at deploy time. The three modes are:
 
 - **`organization`** — every org member (the default).
 - **`private`** — owners only.
@@ -221,8 +208,3 @@ Org admins/owners bypass per-app access (they can see and manage every app). If 
 sensitive data, deploy it and then set it to `private`/`restricted` in the admin console
 before sharing the URL widely. For verification steps, read the
 [Deployment reference](references/deployment.md).
-
-Deploying an app (`railcode deploy`) is separate from running or updating the Railcode
-platform itself (the multi-tenant server runs on AWS Fargate behind a Cloudflare edge; see
-the repo's `docs/deployment.md`) — that only matters when the user operates the server, not
-when building apps on it.

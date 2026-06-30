@@ -28,8 +28,8 @@ Reserved subdomains (the dashboard/login parent, `api`, `admin`, etc.) cannot be
 Railcode derives context from server-controlled request state, not from browser JavaScript:
 
 - **Serving (app pages + `/_api/*`)** is gated by a **parent-scoped serving cookie**
-  (`Domain=.<parent>`), the only cross-subdomain credential. Caddy `forward_auth` verifies
-  org membership and per-app access before any app byte or `/_api/*` response is served. App
+  (`Domain=.<parent>`), the only cross-subdomain credential. The platform verifies org
+  membership and per-app access before any app byte or `/_api/*` response is served. App
   identity comes from the `Host` header.
 - **Dashboard/API** (the control plane) uses **bearer tokens** — `Authorization: Bearer
   <token>` — with no cookies/CSRF.
@@ -77,8 +77,8 @@ The globals are exactly: `me`, `appUsers`, `designSystem`, `db`, `files`, `postg
 
 - `me()` returns nested objects. Use **`me().user.uuid`** as the stable per-user key for
   ownership/permissions/KV prefixes; `me().user.name`/`.email` are for display.
-- Only the **postgres** engine exists today. There is no `mysql` namespace and no
-  `databaseConnectors()` alias (those were single-tenant CLI surfaces).
+- `postgres` is the only database engine today; `dataConnectors()` lists the configured
+  connections as `{ engine, name }`.
 
 The SDK also ships a hidden live inspector drawer that logs every call (`db`, `files`, `llm`,
 `postgres`, `connector`, `me()`, `appUsers()`, `designSystem()`) with a pending → ok/error
@@ -100,8 +100,7 @@ An app's `access_mode` is one of:
 
 Org admins/owners **bypass** per-app access — they see and manage every app in the org.
 Access is read/set in the **admin UI** or via `GET`/`PUT
-/api/organizations/{org}/apps/{app}/access`. There is **no `railcode access` CLI command** on
-the multi-tenant platform.
+/api/organizations/{org}/apps/{app}/access`.
 
 `appUsers()` returns the app's org members (`{ uuid, name, email, role }`); use it for
 assignee pickers, mentions, and display, not as an authorization check (the server already

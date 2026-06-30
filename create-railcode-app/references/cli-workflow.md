@@ -11,29 +11,21 @@ railcode init <app> [--template static|react] Scaffold a new app directory
 railcode dev [--port <n>] [--asset-port <n>] [--reset]   Run the app locally against an emulated /_api
 railcode deploy                               Build (if configured) and deploy the app here
 railcode design-system                        Print your org's design-system guidance (markdown)
+railcode db <list|query> ...                  List data connectors / run read-only SQL
+railcode connector <list|fetch> ...           List service connectors / proxy one HTTP call
 railcode --version
 railcode --help
 ```
 
-There is **no** `railcode upgrade`, `railcode get`, `railcode network`, `railcode db`, or
-`railcode access` — those were commands of the older single-tenant CLI. Upgrade the CLI
-through your package manager (`npm install -g railcode@latest`).
+Upgrade the CLI through your package manager (`npm install -g railcode@latest`) — it's a
+regular npm package, not a self-updating binary.
 
-## Install Or Link The CLI
+## Install The CLI
 
-Install the published CLI globally:
+Install the CLI globally:
 
 ```bash
 npm install -g railcode@latest        # or: pnpm add -g railcode@latest
-```
-
-In a multi-tenant Railcode source checkout (the repo uses **pnpm**):
-
-```bash
-cd cli
-pnpm install
-pnpm build              # produces dist/index.js (the `railcode` bin)
-pnpm link --global      # or run it directly: node dist/index.js <command>
 ```
 
 The CLI stores config at `${RAILCODE_HOME:-~/.railcode}/config.json` (dir `0700`, file
@@ -113,7 +105,7 @@ slug). Behavior:
 `railcode dev` emulates the `/_api/*` data plane on local disk and proxies the rest to your
 real instance:
 
-- `GET /_api/sdk.js` — serves the bundled SDK from the CLI package or source checkout.
+- `GET /_api/sdk.js` — serves the bundled SDK.
 - `GET /_api/me` — synthetic identity `{ user, app, org }` (user `dev@localhost`).
 - `GET /_api/app-users` — a single synthetic member.
 - `GET /_api/config/design-system` — your org's **real** configured markdown when logged in;
@@ -122,16 +114,18 @@ real instance:
   the same engine production uses.
 - `/_api/files*` — bytes under `~/.railcode/dev/<instance>/<app>/files/`, metadata in
   `files.json`.
-- `/_api/connections`, `/_api/sql`, `/_api/llm/generate`, `/_api/llm/stream` — **proxied to
-  the real instance** with your saved token (app-scoped under
-  `/api/organizations/{org}/apps/{app}/…`). These hit the org's real provider, quota, and
-  databases — **real spend and real data**. The first `llm`/`sql` call creates the app
-  server-side if it doesn't exist yet; a load-time `GET /connections` only resolves an
-  existing app, never creates one.
+- `/_api/connections`, `/_api/sql`, `/_api/llm/generate`, `/_api/llm/stream`,
+  `/_api/service-connectors`, `/_api/service-connectors/request` — **proxied to the real
+  instance** with your saved token (app-scoped under `/api/organizations/{org}/apps/{app}/…`).
+  These hit the org's real provider, quota, databases, and connectors — **real spend and real
+  data**. The first real compute call (`llm`/`sql`/a connector `request`) creates the app
+  server-side if it doesn't exist yet; a load-time list (`GET /connections`,
+  `/service-connectors`) only resolves an existing app, never creates one.
 
-When you're **not logged in**, `connections`/`service-connectors` degrade to empty and
-`llm`/`sql` return `503` (never `401`, which the SDK would treat as a session lapse and
-reload-loop on). The startup banner states which mode you're in.
+When you're **not logged in**, the list endpoints (`connections`, `service-connectors`)
+degrade to empty and the call endpoints (`llm`, `sql`, a connector `request`) return `503`
+(never `401`, which the SDK would treat as a session lapse and reload-loop on). The startup
+banner states which mode you're in.
 
 The local state directory is namespaced by `(instance, org)` so two orgs' same-slug apps
 never share KV/files. Concurrent `railcode dev` sessions for the same app/org share that
@@ -146,6 +140,52 @@ railcode design-system
 Prints your org's configured design-system markdown straight to stdout (so it pipes/feeds
 cleanly into an agent). Needs a logged-in CLI; resolves the server like every other command.
 Returns empty when no admin has configured a design system for the org.
+
+## Query Data Connectors
+
+```bash
+railcode db list                                   # list the org's data connectors
+railcode db query "select 1"                       # read-only SQL against connection `default`
+railcode db query "select * from orders where total > $1" --params '[100]'
+railcode db query --file report.sql --connection analytics
+```
+
+`railcode db` inspects the org's **data connectors** (admin-configured Postgres) and runs
+ad-hoc read-only SQL from the terminal — the same connectors and `/sql` route the in-app
+`dataConnectors()` / `postgres().runSQL()` use. Run it from an app dir for an app you've
+**already deployed**; it resolves the existing app by slug (it won't create one) and errors
+"run `railcode deploy` first" otherwise.
+
+- `railcode db list` (aliases `ls`, `connections`) — prints each connector's `name` +
+  `engine`; `--json` prints the raw array.
+- `railcode db query "<sql>"` (alias `sql`) — runs the SQL and prints a table + row count.
+  `--connection <name>` (default `default`), `--engine <postgres|mysql>` (inferred from the
+  connector list when omitted; postgres is the only engine today), `--params '<json-array>'`
+  binds `$1, $2, …`, `--file <path>` reads SQL from a file (mutually exclusive with the
+  positional arg), `--json` prints the raw `{ columns, rows, rowcount, truncated }` envelope.
+
+SQL is read-only — always use placeholders + `--params`, never string interpolation.
+
+## Call Service Connectors
+
+```bash
+railcode connector list                                          # list service connectors
+railcode connector fetch "/v1/charges?limit=3" --connector stripe
+railcode connector fetch "/v1/charges" --connector stripe --method POST --body "amount=500&currency=usd"
+```
+
+`railcode connector` lists and calls the org's **service connectors** (admin-configured HTTP
+proxies to SaaS APIs) — the same surface the in-app `serviceConnectors()` /
+`connector().fetch()` use. The connector holds the credential; you control only
+method/path/body. Resolve-only and app-scoped, like `railcode db` (deploy the app first).
+
+- `railcode connector list` (aliases `ls`, `connectors`) — prints `name`, `auth_type`, and
+  `allowed_methods` (and `description` when set); `--json` for the raw array.
+- `railcode connector fetch <path>` (alias `request`) — proxies one HTTP call.
+  `--connector <name>` (required), `--method <verb>` (default `GET`; must be allowed by the
+  connector or the server returns 405), `--body <string>` / `--file <path>` (mutually
+  exclusive), `--json` prints the raw `{ status, ok, headers, body, truncated }` envelope. A
+  non-2xx upstream status is still printed, but the command exits non-zero.
 
 ## Deploy An App With The CLI
 
@@ -178,14 +218,13 @@ Deploy output resolution order:
 4. Otherwise a root `index.html` can be deployed interactively (a `y/N` prompt); for CI set
    `"dist": "."`.
 
-There are **no `--private`/`--public` flags** and no `deploy.access`/`deploy.apiUrl` manifest
-keys. The `railcode.json` schema is `{ app, build?, dist?, dev?: { root?, command?, port? } }`.
+The `railcode.json` schema is `{ app, build?, dist?, dev?: { root?, command?, port? } }`.
 
-## App Access (no CLI command)
+## App Access
 
 A new app defaults to **`organization`** access — every member of your org may open it.
-Access is **not** managed from the CLI on the multi-tenant platform. The owner or an org
-admin changes it in the **admin UI**, or via the access API:
+Access is set in the **admin UI**, or via the access API. The owner or an org admin changes
+it:
 
 ```text
 GET  /api/organizations/{org}/apps/{app}/access
