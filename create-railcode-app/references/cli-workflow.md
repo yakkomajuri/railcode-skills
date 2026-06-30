@@ -1,187 +1,197 @@
 # CLI Workflow
 
-Use this reference when an agent needs exact Railcode CLI behavior, local dev behavior, or app deploy behavior.
+Use this reference when an agent needs exact Railcode CLI behavior, local dev behavior, or
+app deploy behavior on the **multi-tenant** Railcode platform.
+
+The CLI ships as the npm package **`railcode`**. Its full command set is:
+
+```
+railcode login [--api-url <url>]              Sign in (browser) and mint a personal API token
+railcode init <app> [--template static|react] Scaffold a new app directory
+railcode dev [--port <n>] [--asset-port <n>] [--reset]   Run the app locally against an emulated /_api
+railcode deploy                               Build (if configured) and deploy the app here
+railcode design-system                        Print your org's design-system guidance (markdown)
+railcode --version
+railcode --help
+```
+
+There is **no** `railcode upgrade`, `railcode get`, `railcode network`, `railcode db`, or
+`railcode access` — those were commands of the older single-tenant CLI. Upgrade the CLI
+through your package manager (`npm install -g railcode@latest`).
 
 ## Install Or Link The CLI
 
-In a Railcode source checkout:
+Install the published CLI globally:
+
+```bash
+npm install -g railcode@latest        # or: pnpm add -g railcode@latest
+```
+
+In a multi-tenant Railcode source checkout (the repo uses **pnpm**):
 
 ```bash
 cd cli
-npm install
-npm run build
-npm link
+pnpm install
+pnpm build              # produces dist/index.js (the `railcode` bin)
+pnpm link --global      # or run it directly: node dist/index.js <command>
 ```
 
-The CLI stores config under `${RAILCODE_HOME:-~/.railcode}/config.json`. The default API URL is `http://auth.127.0.0.1.nip.io:8080`. For deploy, set `RAILCODE_API_URL`, put `deploy.apiUrl` in `railcode.json`, or rely on the saved CLI config.
+The CLI stores config at `${RAILCODE_HOME:-~/.railcode}/config.json` (dir `0700`, file
+`0600`):
+
+```json
+{ "apiUrl": "...", "email": "...", "apiToken": "rc_...", "tokenPrefix": "rc_...",
+  "orgUuid": "...", "orgSlug": "...", "appHostStrategy": "two_label" }
+```
+
+API-URL resolution for every command: `--api-url` flag > `RAILCODE_API_URL` env > saved
+config > prompt (the prompt default is the dev URL `http://api.127.0.0.1.nip.io`). Set
+`RAILCODE_API_TOKEN` to override the saved token in CI. On a `401`, the saved token is
+cleared and you're told to `railcode login` again.
+
+## Log In
+
+```bash
+railcode login [--api-url <url>]
+```
+
+Login is **browser-based** (not an email/password prompt). The CLI:
+
+1. Starts a localhost HTTP callback and prints a browser authorization link.
+2. You open it; the browser does normal dashboard auth and approves the CLI.
+3. The CLI exchanges the one-time code for a long-lived, revocable **personal API token**,
+   resolves your organization, and saves everything to `~/.railcode/config.json`.
+
+Browser login needs a TTY. In non-interactive environments set `RAILCODE_API_TOKEN`
+instead. If you have no organization yet, finish onboarding in the dashboard, then run
+`railcode login` again so the org is saved (deploy needs it).
 
 ## Create An App
 
-Run from an empty app repo root:
-
 ```bash
-mkdir my-app
-cd my-app
-railcode init my-app
+railcode init <app> [--template static|react]
 ```
 
 Behavior:
 
-- Validate app names against `^[a-z0-9][a-z0-9-]{0,62}$`.
-- Copy `cli/railcode-templates/railcode-react` into the current app root.
-- Replace `__RAILCODE_APP__` and `__RAILCODE_TITLE__` placeholders.
-- Refuse to initialize a non-empty app root unless `--force` is passed. Existing `.git` and `.DS_Store` are ignored for this check.
+- Validates the app slug against `^[a-z0-9][a-z0-9-]{0,62}$` (a DNS label: lowercase
+  letters, digits, dashes).
+- Scaffolds a **single self-contained directory `./<app>/`** — there is no
+  `apps/`/`app-bundles/` workspace split, and no template repo is copied.
+- Refuses to scaffold into a non-empty directory.
 
-The starter uses React, Vite, Zustand, Tailwind, lucide-react, TypeScript, and exact package pins. Keep direct dependency versions exact unless there is a reason to upgrade.
+Templates:
 
-The starter's `vite.config.ts` builds to `dist/` and uses `127.0.0.1:5173` as the starting asset dev server port.
+- **`static`** (default) — a no-build app: `index.html` that loads `/_api/sdk.js` and demos
+  `await me()` + `db.collection().put/get`, plus `railcode.json` with `{ "app": "<slug>",
+  "dist": "." }`. No dependencies, no build step.
+- **`react`** — a React 19 + Vite 7 + Zustand 5 + TypeScript starter that builds to `dist/`,
+  with `railcode.json` `{ "app": "<slug>", "build": "pnpm run build", "dist": "dist" }`.
+  Run `pnpm install` before `railcode dev`/`railcode deploy`.
+
+Treat the starter as functional scaffolding, not a style guide.
 
 ## Local Dev
 
-Run from the app root:
-
 ```bash
-railcode dev
+railcode dev [--port <n>] [--asset-port <n>] [--reset]
 ```
 
-Useful options:
+Run it from the app directory (any directory with a `railcode.json` that has an `"app"`
+slug). Behavior:
 
-```bash
-railcode dev --verbose
-railcode dev --reset
-railcode dev --port 7332
-railcode dev --asset-port 5174
-railcode dev --command "npm run dev -- --host 127.0.0.1 --port 5173"
-```
+- Serves the app on a single loopback origin, starting at `http://127.0.0.1:7331` and
+  climbing (`7332`, …) when the port is busy. Print-and-open the URL it reports.
+- **Static mode**: serves files straight from the app root (the deploy resolution mirrored).
+- **Asset mode**: when `package.json` has a `dev` script (or `railcode.json` sets
+  `dev.command`), the CLI runs the app's own dev server (Vite) and reverse-proxies it,
+  tunnelling the HMR WebSocket. `--asset-port` / `railcode.json` `dev.port` set the starting
+  Vite port (default `5173`). It does **not** install dependencies for you — if
+  `node_modules` is missing it tells you to run `pnpm install` first.
+- `--reset` wipes this app's local KV/files before starting.
 
-`--port` is the starting Railcode proxy port. `railcode dev` tries that port first, then moves upward until it finds an available local port, and prints the URL to open. `--asset-port` and `railcode.json` `dev.port` are starting asset-server ports for inferred Vite apps; the CLI reserves the selected port and passes it to Vite. Custom `--command` / `dev.command` values are not rewritten, so keep their target port aligned with `--asset-port`.
+`railcode dev` emulates the `/_api/*` data plane on local disk and proxies the rest to your
+real instance:
 
-App detection order:
+- `GET /_api/sdk.js` — serves the bundled SDK from the CLI package or source checkout.
+- `GET /_api/me` — synthetic identity `{ user, app, org }` (user `dev@localhost`).
+- `GET /_api/app-users` — a single synthetic member.
+- `GET /_api/config/design-system` — your org's **real** configured markdown when logged in;
+  empty otherwise (never errors).
+- `/_api/kv/*` — JSON KV stored under `~/.railcode/dev/<instance>/<app>/kv.json`, queried by
+  the same engine production uses.
+- `/_api/files*` — bytes under `~/.railcode/dev/<instance>/<app>/files/`, metadata in
+  `files.json`.
+- `/_api/connections`, `/_api/sql`, `/_api/llm/generate`, `/_api/llm/stream` — **proxied to
+  the real instance** with your saved token (app-scoped under
+  `/api/organizations/{org}/apps/{app}/…`). These hit the org's real provider, quota, and
+  databases — **real spend and real data**. The first `llm`/`sql` call creates the app
+  server-side if it doesn't exist yet; a load-time `GET /connections` only resolves an
+  existing app, never creates one.
 
-- `--app` option or positional app argument.
-- `railcode.json` `app`.
-- App name inferred from an `apps/<app>` or `app-bundles/<app>` path for legacy workspaces.
-- The only app under `apps/` if exactly one exists.
-- `notes` for legacy/demo workspaces when present.
-- Current directory basename if it matches the app-name regex.
+When you're **not logged in**, `connections`/`service-connectors` degrade to empty and
+`llm`/`sql` return `503` (never `401`, which the SDK would treat as a session lapse and
+reload-loop on). The startup banner states which mode you're in.
 
-Root and asset server detection:
-
-- If `railcode.json` has `dev.root`, use it relative to the manifest.
-- Otherwise infer from `apps/<app>` or `app-bundles/<app>` for legacy workspaces.
-- If the root has `package.json` with a `dev` script, run it.
-- Prefer `pnpm`, then `yarn`, otherwise `npm`.
-- Run `npm ci` when a package-lock exists and dependencies are missing; otherwise run the package manager's normal install.
-- Multiple `railcode dev` processes can run at once; each uses its own printed proxy URL and inferred Vite asset port. Concurrent sessions for the same app share the same local KV/files directory.
-
-Local API behavior:
-
-- `/_api/sdk.js`: serve the bundled SDK from the CLI package or source checkout.
-- `/_api/me`: return `{ user: "local-dev", display_name: "Local Dev", app }`.
-- `/_api/app-users`: return local mode with an empty complete roster.
-- `/_api/kv/*`: store JSON in `~/.railcode/dev/<app>/kv.json`.
-- `/_api/files/*`: store files in `~/.railcode/dev/<app>/files/` and metadata in `files.json`.
-- `/_api/connections`: return `[]` unless a saved API token exists.
-- Other `/_api/*`: forward to `<api-url>/v1/apps/<app>/*` with bearer auth when logged in.
-
-If the remote backend rejects forwarded local-dev calls with `401` or `403`, `dataConnectors()` becomes `[]`; other backend-backed calls return a `502` explaining that local identity/KV/files still work.
+The local state directory is namespaced by `(instance, org)` so two orgs' same-slug apps
+never share KV/files. Concurrent `railcode dev` sessions for the same app/org share that
+directory.
 
 ## Read The Design System
 
 ```bash
-railcode get design-system
+railcode design-system
 ```
 
-The command prints the configured platform design-system markdown directly to stdout.
-It accepts `--api-url`, otherwise it uses the saved CLI config, `railcode.json`
-`deploy.apiUrl`, or `RAILCODE_API_URL`.
-
-## Check The Network Mode
-
-```bash
-railcode network
-```
-
-Prints the platform default network mode — the per-app Content-Security-Policy mode new
-apps are created with (`open`, `restricted`, or `sandboxed`; ships as `restricted`). It is
-admin-controlled and tells the builder how to build; there is no builder command to change
-a mode. Admins set the default and flip individual apps from the admin console. The command
-takes no arguments and resolves the server like the others (`--api-url`, then
-`RAILCODE_API_URL`, then `railcode.json` `deploy.apiUrl`, then saved config). See the
-**Network Mode** section in [platform-magic.md](platform-magic.md) for what each mode
-allows and forbids.
-
-## Query Data Connectors
-
-List the admin-configured database connectors, or run a read-only SQL query
-against one, from the terminal. These hit the same global connector registry the
-in-app SDK uses (`dataConnectors()` / `postgres('name').runSQL()`), authenticated
-with the saved CLI token.
-
-```bash
-railcode db list
-railcode db query "select id, email from users limit 5"
-railcode db query "select * from orders where total > $1" --params '[100]'
-railcode db query "select 1" --connection analytics --engine mysql
-```
-
-Behavior:
-
-- `db list` prints each connector's name and engine (`GET /v1/connections`). `--json` prints the raw array.
-- `db query "<sql>"` runs the SQL against a connector (`POST /v1/sql`) and prints a table, plus a row count and a truncation note when the server caps results at 1000 rows. `--json` prints the raw `{ columns, rows, rowcount, truncated }` envelope.
-- `--connection <name>` selects the connector (default `default`). `--params '<json-array>'` supplies `$1, $2, ...` placeholder values. `--file <path>` reads SQL from a file instead of an argument.
-- The engine is inferred from the named connector; pass `--engine <postgres|mysql>` to override. A name/engine mismatch fails loudly (404), same as the SDK.
-- Queries are read-only. Always use placeholders plus `--params`, never string interpolation.
-- Resolves the server like the other commands: `--api-url`, then `RAILCODE_API_URL`, then `railcode.json` `deploy.apiUrl`, then saved config. Reads `RAILCODE_API_TOKEN` for non-interactive runs.
+Prints your org's configured design-system markdown straight to stdout (so it pipes/feeds
+cleanly into an agent). Needs a logged-in CLI; resolves the server like every other command.
+Returns empty when no admin has configured a design system for the org.
 
 ## Deploy An App With The CLI
 
 ```bash
-railcode deploy [--private | --public]
+railcode deploy
 ```
 
 Deploy behavior:
 
-- Infers the app from `railcode.json` `app`, or from the current directory.
-- Runs the app's `build` script when one exists, installing dependencies first when missing.
-- Publishes `dist/` for root app repos. Legacy workspace apps can still publish `app-bundles/<app>/`.
-- Uploads the static files over HTTP to `api.<domain>/v1/apps/<app>/deploy`.
-- Uses a saved API token, prompts for login when needed, or reads `RAILCODE_API_TOKEN` for non-interactive runs.
-- On first deploy, creates the access policy: public for signed-in users by default, or owner-only with `--private`. `--public` is the explicit default; `--private` and `--public` are mutually exclusive.
-- `railcode.json` `deploy.access` (`"public"` or `"private"`) sets the same initial policy without a flag; the flag wins when both are present. `restricted` is not valid here — deploy, then run `railcode access restricted --users <...>`.
-- The initial access applies only when the policy is first created. Redeploys keep the existing policy (deploy reports `existing_policy`); the CLI hints to use `railcode access` if `--private`/`--public` was passed on a redeploy.
-- Prints the live app URL after a successful upload.
+- Requires a `railcode.json` with an `"app"` slug in the current directory.
+- Resolves the output directory, then runs a build command when needed (see resolution
+  below), and uploads every file in the output dir (which must contain a root `index.html`)
+  to the org-scoped multipart deploy API
+  (`POST /api/organizations/{org}/apps/{appUuid}/deploy`).
+- Skips `.git`, `node_modules`, `.DS_Store`, and (at the app root) `railcode.json`,
+  `package.json`, `pnpm-lock.yaml`.
+- The app is **created-or-resolved by slug in your saved org**; first deploy creates it with
+  the default **`organization`** access mode.
+- Uses the saved API token (or `RAILCODE_API_TOKEN`); clears the token and asks you to log in
+  again on `401`.
+- Prints the live URL `http://<app>.<org>.<serving-domain>/` after upload.
 
-The deploy API accepts admins for any app, existing app owners for apps where
-the access policy grants them `owner`, and any authenticated user for an
-unclaimed app with no access policy. First deploy gives that unclaimed app a
-workspace policy and an owner grant for the deployer.
+Deploy output resolution order:
 
-Optional `railcode.json` URL:
+1. `railcode.json` `"dist"` wins (use `"."` for a no-build static app). `"build"` still runs
+   first if also set.
+2. Otherwise `railcode.json` `"build"` runs and `dist/` is uploaded.
+3. Otherwise a `package.json` with a `build` script runs `pnpm run build` and uploads
+   `dist/`.
+4. Otherwise a root `index.html` can be deployed interactively (a `y/N` prompt); for CI set
+   `"dist": "."`.
 
-```json
-{
-  "app": "my-app",
-  "deploy": {
-    "apiUrl": "https://api.apps.example.com"
-  }
-}
+There are **no `--private`/`--public` flags** and no `deploy.access`/`deploy.apiUrl` manifest
+keys. The `railcode.json` schema is `{ app, build?, dist?, dev?: { root?, command?, port? } }`.
+
+## App Access (no CLI command)
+
+A new app defaults to **`organization`** access — every member of your org may open it.
+Access is **not** managed from the CLI on the multi-tenant platform. The owner or an org
+admin changes it in the **admin UI**, or via the access API:
+
+```text
+GET  /api/organizations/{org}/apps/{app}/access
+PUT  /api/organizations/{org}/apps/{app}/access      { "mode": "...", ... }
 ```
 
-## Set App Access With The CLI
-
-```bash
-railcode access                                      # show current access
-railcode access public                               # anyone signed in (workspace)
-railcode access private                              # just the owner
-railcode access restricted --users a@b.com,c@d.com   # named users only
-```
-
-Access behavior:
-
-- Infers the app and resolves the server/auth exactly like `railcode deploy` (run it from the app directory).
-- `GET`s or `PUT`s `api.<domain>/v1/apps/<app>/access` with the saved API token (or `RAILCODE_API_TOKEN`).
-- Modes map to server policy modes: `public` is an alias for `workspace`; `private` is owner-only; `restricted` grants the listed users plus the owner.
-- `--users` takes a comma-separated list of existing Railcode users and is only valid with `restricted`.
-- The app must be deployed at least once first (it needs an owner); a never-deployed app returns 404.
-- Only the app owner or an admin may change access; others get a 403. The same change is also available in the admin UI.
+Modes: `organization` (every org member, the default), `private` (owners only), `restricted`
+(owners plus explicitly-granted members). Org admins/owners bypass per-app access entirely.
+See [platform-magic.md](platform-magic.md) for the access model.

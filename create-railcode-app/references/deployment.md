@@ -1,150 +1,95 @@
 # Deployment
 
-Use this reference when deploying a Railcode app or setting up/updating a Railcode server.
+Use this reference when deploying a Railcode app, setting app access, or standing up a local
+Railcode stack to test against. This is the **multi-tenant** platform; deploys are
+org-scoped.
 
-## First-Time Server Install
+## App Deploy
 
-Run the installer on the server:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/railcode/railcode/main/install.sh | bash
-```
-
-From an existing checkout:
-
-```bash
-bash install.sh
-```
-
-The installer verifies Docker, Docker Compose v2, and curl; prompts for the base domain; explains required DNS records; asks for storage, admin, and optional LLM settings; writes `.env` and `.railcode/Caddyfile`; then runs `docker compose up -d --build`.
-
-DNS records:
-
-```text
-auth.<domain>  A  <server-ip>
-admin.<domain> A  <server-ip>
-*.<domain>     A  <server-ip>
-```
-
-Use `127.0.0.1.nip.io` as the base domain for local HTTP installs. Other domains are treated as production HTTPS installs with Caddy on-demand TLS, so ports 80 and 443 must be reachable from the public internet.
-
-Production setup decisions:
-
-- Platform DB: SQLite by default, Postgres with `STORAGE_BACKEND=postgres` and `POSTGRES_DATABASE_URL`.
-- File bytes: local disk by default, S3-compatible storage with `OBJECT_STORAGE_BACKEND=s3`.
-- Auth/admin: set a strong `SECRET_KEY`, change the bootstrap admin password, and avoid demo credentials.
-- LLM: configure provider, API key, model, and `LLM_DAILY_TOKEN_LIMIT` before apps can use `llm`.
-
-For env details, read the repo's `docs/service-config.md`.
-
-## App-Only Deploy
-
-For a single app:
+From the app directory:
 
 ```bash
 railcode deploy
 ```
 
-`railcode deploy` builds the current app and uploads the inferred static output
-to the Railcode backend over HTTP. It does not restart backend services.
+`railcode deploy` reads `railcode.json` (`{ app, build?, dist? }`), runs the build command
+when one is configured, and uploads the resolved output directory (which must contain a root
+`index.html`) over HTTP to the configured Railcode instance. It does not restart any backend
+service.
 
-Deploy sends to the configured Railcode URL and uploads to the canonical
-`api.<domain>` host. The URL resolution order is:
+- **Which server** — resolved from `--api-url`, then `RAILCODE_API_URL`, then the saved CLI
+  config from `railcode login` (prompt default `http://api.127.0.0.1.nip.io`). There is no
+  `deploy.apiUrl` manifest key.
+- **Auth** — the saved personal API token, or `RAILCODE_API_TOKEN` for non-interactive
+  deploys. On a `401` the token is cleared and you're asked to `railcode login` again.
+- **Where it lands** — the app is created-or-resolved by slug in your saved org
+  (`POST /api/organizations/{org}/apps/{appUuid}/deploy`, a multipart upload). A deploy
+  writes an immutable tree and going live is a single pointer flip server-side.
+- **Output resolution** — `railcode.json` `dist` wins (`"."` = no-build static); else
+  `build` + `dist/`; else a `package.json` build script runs `pnpm run build` and `dist/` is
+  uploaded; else an interactive root-`index.html` deploy.
 
-- `RAILCODE_API_URL`
-- `railcode.json` `deploy.apiUrl`
-- saved CLI config
-- the local default `http://auth.127.0.0.1.nip.io:8080`
+After upload the CLI prints the live URL: `http://<app>.<org>.<serving-domain>/`
+(e.g. `https://my-app.acme.railcode.dev/`).
 
-When no API token is saved, `railcode deploy` prompts for login and creates one.
-For non-interactive deploys, set `RAILCODE_API_TOKEN`.
+There are **no `--private`/`--public` flags** and no `deploy.access` manifest key.
 
-When the app has no access policy yet, deploy creates public access for
-signed-in users by default, or an owner-only policy with `railcode deploy
---private` (or `railcode.json` `deploy.access: "private"`) so a sensitive app is
-never briefly public. This initial choice applies only to the first deploy;
-redeploys preserve the existing policy. The CLI prints the live app URL after
-upload.
+## App Access
 
-For root app repos, deploy publishes `dist/`. Legacy `apps/<app>` workspaces
-can still publish `app-bundles/<app>/`.
-
-## Change App Access
-
-After an app exists, the owner (or an admin) can change its access from the CLI
-without opening the admin UI:
-
-```bash
-railcode access                                      # show current access
-railcode access public                               # anyone signed in (workspace)
-railcode access private                              # just the owner
-railcode access restricted --users a@b.com,c@d.com   # named users only
-```
-
-This hits `api.<domain>/v1/apps/<app>/access` with the same auth as deploy. The
-admin UI still offers the same control for owners who prefer a browser.
-
-## Platform Updates
-
-Railcode platform servers are Docker Compose installs. Update a server from the
-source repository with the Ansible playbook:
-
-```bash
-ansible-playbook -i deploy/ansible/inventory.ini deploy/ansible/update-railcode.yml
-```
-
-Each host sets its own `railcode_health_url` in the inventory (see
-`deploy/ansible/inventory.example.ini`). The playbook backs up local
-config/data, updates the checkout from GitHub, validates Compose, runs
-`docker compose up -d --build --remove-orphans`, and waits for the health
-check — one host at a time across the `[railcode]` group.
-
-The repository also ships `.github/workflows/deploy-railcode.yml`, which runs
-the project checks and deploys the pushed `main` commit with the same playbook.
-Configure the workflow with `RAILCODE_HOSTS` (a JSON array of
-`{name, host, health_url}` objects), `RAILCODE_SSH_USER`,
-`RAILCODE_SSH_PRIVATE_KEY`, and `RAILCODE_SSH_KNOWN_HOSTS`.
-
-Do not use a platform update for an app-only change unless the app change
-depends on SDK/backend behavior that has also changed.
-
-## Local Docker Flow
-
-For a full local browser flow:
-
-```bash
-docker compose up --build
-```
-
-Open:
+A newly created app defaults to **`organization`** access (every member of the org may open
+it). Access is **not** managed from the CLI on the multi-tenant platform — there is no
+`railcode access` command. The owner or an org admin changes it in the **admin UI**, or via
+the access API:
 
 ```text
-http://notes.127.0.0.1.nip.io:8080
-http://guestbook.127.0.0.1.nip.io:8080
-http://auth.127.0.0.1.nip.io:8080
+GET  /api/organizations/{org}/apps/{app}/access
+PUT  /api/organizations/{org}/apps/{app}/access      { "mode": "organization" | "private" | "restricted", ... }
 ```
 
-Local Compose uses `admin@example.com/admin`, SQLite at `/data/platform.db`, local files at `/data/files`, and a `railcode-data` Docker volume. Wipe local data with:
+Modes:
+
+- `organization` — every org member (default).
+- `private` — owners only.
+- `restricted` — owners plus explicitly-granted members.
+
+Org admins/owners bypass per-app access (they manage every app). A user who lacks access
+sees a 404, not a 403.
+
+## Local Stack To Test Against
+
+To exercise a real backend locally (auth, design system, SQL, LLM, connectors) bring the
+whole stack up with Docker behind Caddy on the `127.0.0.1.nip.io` parent:
 
 ```bash
-docker compose down -v
+make selfhosted     # or: make cloud     (single-tenant-style vs multi-tenant edge config)
+make logs           # follow logs
+make down           # stop;  make reset / make down-volumes to wipe local data
 ```
+
+Then `railcode login` against the printed dev API URL (default `http://api.127.0.0.1.nip.io`)
+and deploy into it. Modes, the two-terminal `uv` + `pnpm` dev flow, and every environment
+variable are documented in the repo's **`docs/deployment.md`**; the developer quickstart is in
+`README.md`.
+
+## Running / Updating The Platform Itself
+
+Operating the Railcode **server** is separate from deploying an app onto it, and only matters
+when the user runs the platform. The multi-tenant platform runs on **AWS Fargate behind a
+Cloudflare edge** (infra-as-code in `infra/terraform/`, driven with the `tofu`/OpenTofu CLI),
+with `docker-compose.prod*.yml` + `Caddyfile.prod*` for self-managed hosts. Do not attempt a
+platform update for an app-only change. For the full deployment model — modes, production,
+TLS/serving, and env vars — read the repo's `docs/deployment.md` and `docs/architecture.md`;
+don't reconstruct it here.
 
 ## Post-Deploy Verification
 
-After an app deploy:
+After an app deploy, open the printed URL `https://<app>.<org>.<BASE_DOMAIN>/` and check:
 
-Open:
-
-```text
-https://my-app.<BASE_DOMAIN>/
-```
-
-Check:
-
-- Auth redirects to `auth.<BASE_DOMAIN>` when not logged in.
-- App loads `/_api/sdk.js` without CORS or mixed-content errors.
-- `me()` returns the expected user and app.
-- KV/files reads and writes succeed.
-- SQL/LLM features show configured, empty, or disabled states cleanly.
-- Access policy in the admin UI matches the intended audience.
+- Unauthenticated visitors are sent through the platform login (the serving gate), not a
+  custom app login.
+- The app loads `/_api/sdk.js` with no CORS or mixed-content errors.
+- `me()` returns the expected user, app, and org.
+- KV and file reads/writes succeed.
+- SQL / LLM / service-connector features show configured, empty, or disabled states cleanly
+  (never a raw error or a hang).
+- The app's access mode in the admin UI matches the intended audience.

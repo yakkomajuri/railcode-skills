@@ -1,26 +1,28 @@
 ---
 name: create-railcode-app
-description: Build, modify, debug, and deploy Railcode static apps end-to-end. Use when creating a Railcode app from an idea, using the Railcode CLI, wiring the zero-config SDK globals, explaining Railcode auth/data "magic", testing with railcode dev, configuring access policies, or deploying apps to a Railcode server.
-version: 0.1.6
+description: Build, modify, debug, and deploy Railcode static apps end-to-end. Use when creating a Railcode app from an idea, using the Railcode CLI, wiring the zero-config SDK globals, explaining Railcode auth/data "magic", testing with railcode dev, understanding app access, or deploying apps to a Railcode server.
+version: 0.1.7
 ---
 
 # Create Railcode App
 
 ## Version Check (run first)
 
-This skill targets **Railcode CLI 0.1.7**.
+This skill targets **Railcode CLI 0.1.9** (the multi-tenant Railcode platform).
 
 Run `railcode --version`. If the printed version does not match the target above, the
-skill and CLI are out of sync. Update both, then continue with the refreshed skill:
+skill and CLI may be out of sync. Update both, then continue with the refreshed skill:
 
 ```bash
-railcode upgrade
+npm install -g railcode@latest        # or: pnpm add -g railcode@latest
 npx skills update create-railcode-app
 ```
 
 Both commands pull the latest, so they converge — after running them the printed version
-matches the target. If a `railcode` command or flag documented here is missing or errors
-unexpectedly, suspect version drift first and re-check this.
+should match the target. There is no `railcode upgrade` subcommand; the CLI is an npm
+package, so upgrade it through your package manager. If a `railcode` command or flag
+documented here is missing or errors unexpectedly, suspect version drift first and
+re-check this.
 
 ## Installing & Updating This Skill
 
@@ -46,15 +48,12 @@ least:
 - **What & who** — what should the app do, and who uses it? (drives access policy and
   whether data is per-user or shared)
 - **Data** — what does it store or read? Per-user records or shared across the app's users?
-  Any external database to query via `postgres('name').runSQL()` / `mysql('name').runSQL()`? Any `llm` use?
+  Any external database to query via `postgres('name').runSQL()`? Any third-party SaaS API
+  to reach via a `connector('name').fetch()` service connector? Any `llm` use?
 - **Design** — *"Should I use the default Railcode design system, or do you have a specific
   design direction?"* (drives step 2)
 - **Browser testing** — *"Should I test my changes in a browser before calling it done?"*
   (drives step 4)
-- **Network mode** — run `railcode network` to see the network mode new apps get (it's
-  admin-controlled and per-app), then build to fit it. The common default `restricted`
-  means no direct external `fetch()` — all data flows through the same-origin SDK. See the
-  **Network mode (admin-controlled)** subsection under **Implementation Rules**.
 
 ### 2. Fetch the design system (if the user wants it)
 
@@ -62,13 +61,14 @@ If the user chose the Railcode design system, pull it before writing any UI:
 
 ```bash
 railcode login                                       # once, if not already logged in
-railcode get design-system
+railcode design-system
 ```
 
-Use the command output as the active design direction. The command needs a logged-in CLI
-and a reachable Railcode server. If the user wants a custom direction instead, or it returns empty
-(no admin has configured one), or there is no server to log in to, skip it and use the
-fallback in the **Visual Direction** section.
+`railcode design-system` prints your org's configured design-system guidance (markdown) to
+stdout. Use it as the active design direction. The command needs a logged-in CLI and a
+reachable Railcode server. If the user wants a custom direction instead, or it returns empty
+(no admin has configured one for the org), or there is no server to log in to, skip it and
+use the fallback in the **Visual Direction** section.
 
 ### 3. Build the app
 
@@ -87,100 +87,106 @@ Publish with `railcode deploy` — see the **Deployment** section.
 
 ## Core Workflow
 
-Start from the Railcode workspace root when possible. A normal app-builder loop is:
+A normal app-builder loop is:
 
 ```bash
-railcode init my-app
-cd apps/my-app
-railcode dev
-railcode deploy
+railcode init my-app          # scaffolds a standalone ./my-app/ directory
+cd my-app
+pnpm install                  # only for the react template (the static template has no deps)
+railcode dev                  # local server with an emulated /_api
+railcode deploy               # build (if configured) + upload to your org
 ```
 
-If `railcode` is unavailable in a source checkout, build and link the CLI first:
+If `railcode` is unavailable in a source checkout, build and link the CLI first (the
+multi-tenant repo uses **pnpm**):
 
 ```bash
 cd cli
-npm install
-npm run build
-npm link
+pnpm install
+pnpm build
+pnpm link --global
 ```
 
-Use lowercase app names with digits and dashes only. `railcode init <app>` creates source in `apps/<app>` and deployable static output in `app-bundles/<app>`. Treat `apps/<app>` as the source of truth; `app-bundles/<app>` is build output unless the project is an intentionally hand-written static app.
+Use lowercase app names with digits and dashes only (a DNS label: `^[a-z0-9][a-z0-9-]{0,62}$`).
+`railcode init <app>` scaffolds a single self-contained app directory `./<app>/` — there is
+no `apps/`/`app-bundles/` workspace split. The directory is the source of truth; the build
+output (`dist/` for the react template, or the directory itself for the no-build static
+template) is what `railcode deploy` uploads.
 
 ## Decide What To Load
 
 Load only the reference needed for the task:
 
-- [CLI workflow](references/cli-workflow.md): exact `railcode` commands and local dev/deploy behavior.
-- [Platform magic](references/platform-magic.md): how same-origin auth, `/_api/sdk.js`, app identity, access policies, KV/files, SQL, and LLM work.
-- [App patterns](references/app-patterns.md): implementation patterns for React/Vite apps, SDK wrappers, data modeling, SQL, LLM, and frontend expectations.
-- [Deployment](references/deployment.md): server setup, DNS, app deploys, platform deploys, access policy deploys, and verification.
+- [CLI workflow](references/cli-workflow.md): exact `railcode` commands (login/init/dev/deploy/design-system) and local dev/deploy behavior.
+- [Platform magic](references/platform-magic.md): how same-origin auth, `/_api/sdk.js`, app/org identity, access policies, KV/files, SQL, service connectors, and LLM work.
+- [App patterns](references/app-patterns.md): implementation patterns for React/Vite apps, using the SDK globals, data modeling, SQL, connectors, LLM, and frontend expectations.
+- [Deployment](references/deployment.md): `railcode deploy`, app access, a local stack to test against, and post-deploy verification.
 
 ## Implementation Rules
 
 Build the app as a static browser app. Do not add app-specific backend services, API keys, auth code, or hardcoded Railcode URLs unless the user explicitly asks for platform work. Browser code should call same-origin `/_api/*` through the Railcode SDK.
 
-Use the starter's wrappers in `src/lib/railcode.ts` after `loadRailcodeSdk()` has loaded `/_api/sdk.js`. The global SDK surface is `me()`, `appUsers()`, `db.collection()`, `files`, `dataConnectors()` (`databaseConnectors()` is a compatibility alias), the per-engine `postgres('name').runSQL()` / `mysql('name').runSQL()` namespaces, and `llm`.
+Load the SDK with a `<script src="/_api/sdk.js"></script>` tag in `index.html` (both starter
+templates do this). On load it attaches a fixed set of globals to `window` — there is no
+`loadRailcodeSdk()` bootstrap or `src/lib/railcode.ts` wrapper to import; call the globals
+directly (in TypeScript, `declare` them or add an ambient `.d.ts`). The global SDK surface is:
 
-### Network mode (admin-controlled)
+- `me()` → `{ user, app, org }` (each `{ uuid, ... }`); `appUsers()` → the org's members.
+- `designSystem()` → the org's design-system guidance (markdown string), same content as
+  `railcode design-system`.
+- `db.collection(name)` → per-app KV (`get`/`put`/`delete`/`list`, plus the
+  `where`/`prefix`/`updatedSince`/`updatedBefore`/`orderBy`/`page`/`first`/`count` query
+  builder).
+- `files` → `upload(name, data, contentType?)`, `url(name)`, `list()`, `delete(name)`.
+- `llm` → `llm.generate(input, opts)` and the streaming `llm.stream(input, opts)`.
+- `postgres('name').runSQL(query, params)` (or `postgres.runSQL(...)` for the connection
+  named `default`); `dataConnectors()` lists configured connections as `{ engine, name }`.
+  Only the **postgres** engine is supported today — there is no `mysql` namespace and no
+  `databaseConnectors()` alias.
+- `connector('name').fetch(path, opts)` → call an admin-configured third-party SaaS API
+  through the server-side proxy (the credential never reaches the browser);
+  `serviceConnectors()` lists the connectors this app may call.
 
-Each app has a per-app **network mode** — a Content-Security-Policy the platform (Caddy)
-enforces on the app's pages. App builders cannot change it; you build to fit it. New apps
-are created with the platform default (snapshot at creation), which ships as `restricted`.
-Run `railcode network` to see the current default, and read the app's own mode at runtime
-via `GET /_api/mode` (returns `{ "app", "mode" }`). There is no app-builder command to
-change a mode — admins set the default and flip individual apps from the admin console.
-
-The three modes:
-
-- **`open`** — no CSP. The app may `fetch()` any origin; inline scripts and external CDNs
-  are fine. (Legacy behavior.)
-- **`restricted`** — CSP `connect-src 'self'`. The browser blocks `fetch`/XHR/WebSocket to
-  any other origin. Inline scripts and external CDN/font assets still load. All app data
-  must go through the same-origin SDK (`/_api`): KV, files, `postgres()/mysql().runSQL()`,
-  `llm`, `me()/appUsers()`. There is no general outbound HTTP proxy — third-party data must
-  arrive via an admin-configured SQL connector or `llm`, never a direct external `fetch()`.
-- **`sandboxed`** — CSP `default-src 'self'`; same-origin only. On top of `restricted`: no
-  inline `<script>`, no external CDN/font `<link>`/`<script src>`, no remote images. Bundle
-  every asset locally and load the SDK via the same-origin `<script src="/_api/sdk.js">`
-  tag (allowed, `src` is same-origin) or `loadRailcodeSdk()`.
-
-Building to the same-origin SDK — already the core guidance above — **already satisfies
-`restricted`**. `sandboxed` additionally forbids inline scripts and remote assets, so bundle
-assets locally and avoid inline `<script>` when targeting it.
+The SDK also ships a hidden live activity drawer that logs every call; toggle it with
+``Ctrl+` `` (control + backtick) while developing. It is present in production too, just
+dormant until opened.
 
 ## Visual Direction
 
 Treat the starter/template app as functional scaffolding, not a style guide. Do not copy its visual style into new apps unless the active design system calls for it.
 
-If the user opted into the Railcode design system, fetch it first with `railcode get design-system` (see Build Process step 2) and make the app follow it. When no design system is configured or reachable — or the user wants a different look — default to the Railcode design system: quiet internal-tool UI, neutral surfaces, compact controls, clear tables/lists, modest borders/radius, and restrained accent color.
+If the user opted into the Railcode design system, fetch it first with `railcode design-system` (see Build Process step 2) and make the app follow it. When no design system is configured or reachable — or the user wants a different look — default to the Railcode design system: quiet internal-tool UI, neutral surfaces, compact controls, clear tables/lists, modest borders/radius, and restrained accent color.
 
 Apps must be responsive. Verify the main workflows work cleanly on desktop and mobile widths, with no overlapping text, clipped controls, or unusable tables.
 
 Model data intentionally:
 
 - KV is scoped per app and shared by that app's allowed users. Prefix keys with the logged-in user if the app needs per-user records.
-- Use KV query builders (`where`, `prefix`, `updatedSince`, `updatedBefore`, `orderBy`, `page`, `first`, `count`) for large or ordered lists instead of loading the whole collection. `where()` operators are `==`, `!=`, `>`, `>=`, `<`, `<=`, and `in`.
+- Use KV query builders (`where`, `prefix`, `updatedSince`, `updatedBefore`, `orderBy`, `page`, `first`, `count`) for large or ordered lists instead of loading the whole collection. `where()` operators are the string names `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, and `in` (e.g. `.where("done", "eq", false)`), not symbols.
 - Files are scoped per app. File API names cannot contain `/`; encode hierarchy in metadata or key names instead.
-- SQL connections are admin-configured server-side and read-only. Always use placeholders plus params.
+- SQL connections (postgres) are admin-configured server-side and read-only. Always use placeholders plus params.
 - LLM provider/model/API key are admin-configured server-side. Send `metadata` for audit and attribution.
 
 ## Local Development
 
-Run `railcode dev` from `apps/<app>` or any directory with a `railcode.json`. It serves the app at the first available local port starting at `http://127.0.0.1:7331`, runs the asset dev server when applicable, serves the SDK at `/_api/sdk.js`, and stores local KV/files under `~/.railcode/dev/<app>`. Use the printed URL; it may be `7332` or higher when another dev server is already running.
+Run `railcode dev` from the app directory (any directory with a `railcode.json`). It serves the app at the first available local port starting at `http://127.0.0.1:7331`, runs the app's own dev server (Vite) and reverse-proxies it (HMR included) when there's a `package.json` `dev` script, serves the SDK at `/_api/sdk.js`, and stores local KV/files under `~/.railcode/dev/<instance>/<app>/` (namespaced per instance+org). Use the printed URL; it may be `7332` or higher when another dev server is already running. Useful flags: `--port <n>` (starting proxy port), `--asset-port <n>` (starting Vite port), `--reset` (wipe this app's local KV/files first).
 
-Local dev mocks identity, app users, KV, and files. It forwards backend-backed APIs such as SQL, connections, and LLM to the configured Railcode API when the CLI has a saved API token.
+Local dev emulates identity (`me`), app users, KV, and files entirely on local disk. The design system, SQL (`postgres`), data connectors, service connectors, and LLM are **forwarded to the configured Railcode instance** when the CLI has a saved API token — so those use the org's real provider, quota, and databases (real spend, real data). Not logged in: `dataConnectors()`/`serviceConnectors()` return empty and `postgres().runSQL()`/`llm` return `503`. The startup banner prints which mode you're in.
 
 ## Validation
 
-Before handing off a new or changed app, run the app's normal build:
+Before handing off a new or changed app, run the app's normal build (the react template):
 
 ```bash
-cd apps/<app>
-npm run build
+cd <app>
+pnpm build
 ```
 
-When changing the CLI, SDK, backend, deployment workflow, or platform behavior, run the relevant project checks in addition to the app build. Typical checks are `npm run build` in changed Node packages and, for backend changes, `cd backend && uv run pytest && uv run ruff check`.
+The no-build **static** template has no build step — just confirm the files load via
+`railcode dev`. When changing the CLI, SDK, backend, deployment workflow, or platform
+behavior, run the relevant project checks in addition to the app build. Typical checks are
+`pnpm build` in changed Node packages (the repo uses **pnpm**) and, for backend changes,
+`cd backend && uv run pytest && uv run ruff check`.
 
 If the user asked for browser testing (Build Process step 1), also exercise the running app before handing off. Start `railcode dev`, then open the printed local URL, usually `http://127.0.0.1:7331`, with whatever browser tooling you have — a browser-automation MCP, browser-use, or your harness's built-in browser. Load the app, walk the primary workflow end to end, and confirm it works at both desktop and mobile widths. Treat console errors, failed `/_api/*` calls, and broken layouts as failures to fix, not ship.
 
@@ -192,33 +198,31 @@ Deploy a finished app from its app directory:
 railcode deploy
 ```
 
-`railcode deploy` builds the app and uploads the static output (`dist/` for a root app) over HTTP to the configured Railcode API. It needs two things:
+`railcode deploy` reads `railcode.json` (`{ app, build?, dist? }`), runs the build command when one is configured, then uploads the output directory (which must contain a root `index.html`) over HTTP to the configured Railcode instance. It needs two things:
 
-- **Which server** — set `deploy.apiUrl` in `railcode.json`, or `RAILCODE_API_URL`, or rely on the saved CLI config from `railcode login`.
-- **Auth** — it uses the saved API token, prompts for a browser login when needed, or reads `RAILCODE_API_TOKEN` for non-interactive runs.
+- **Which server** — `--api-url`, then `RAILCODE_API_URL`, then the saved CLI config from `railcode login`. (There is no `deploy.apiUrl` manifest key in the multi-tenant CLI.)
+- **Auth** — it uses the saved API token, or reads `RAILCODE_API_TOKEN` for non-interactive runs. On a `401` the saved token is cleared and you're told to `railcode login` again.
 
-On first deploy the app is created with public access for signed-in users, and the command prints the live URL. For a sensitive app, deploy it owner-only from the very first deploy instead of publishing then locking down:
+The app is **created-or-resolved by slug in your saved org**, then the live URL is printed —
+`http://<app>.<org>.<serving-domain>/` (e.g. `https://my-app.acme.railcode.dev/`).
 
-```bash
-railcode deploy --private    # first deploy is owner-only (no public window)
-railcode deploy --public     # explicit default: anyone signed in
-```
+### Access
 
-Or set it declaratively so plain `railcode deploy` is private:
+A newly created app defaults to **`organization`** access — every member of your org can
+open it. There is **no `railcode access` CLI command and no `--private`/`--public` deploy
+flags** in the multi-tenant CLI; access is managed in the **admin UI** (or via
+`PUT /api/organizations/{org}/apps/{app}/access`). The three modes are:
 
-```json
-{ "app": "my-app", "deploy": { "access": "private" } }
-```
+- **`organization`** — every org member (the default).
+- **`private`** — owners only.
+- **`restricted`** — owners plus explicitly-granted members.
 
-The flag wins over `deploy.access`. This only sets the initial policy on first deploy; redeploys keep whatever policy the app already has. Change access later from the CLI with `railcode access` (or in the admin UI):
+Org admins/owners bypass per-app access (they can see and manage every app). If an app holds
+sensitive data, deploy it and then set it to `private`/`restricted` in the admin console
+before sharing the URL widely. For verification steps, read the
+[Deployment reference](references/deployment.md).
 
-```bash
-railcode access              # show the app's current access
-railcode access public       # anyone signed in (workspace)
-railcode access private      # just the owner
-railcode access restricted --users a@b.com,c@d.com   # named users only
-```
-
-`railcode access` runs from the app directory, uses the same server/auth resolution as `railcode deploy`, and only works once the app has been deployed at least once. Only the app owner or an admin can change access. For DNS, platform deploys, access-policy deploys, and verification, read the [Deployment reference](references/deployment.md).
-
-Deploying an app (`railcode deploy`) is separate from updating the Railcode platform itself (a Docker Compose / Ansible flow in `deploy/ansible/`, also wired to a GitHub Action on pushes to `main`) — that only matters when the user runs the server, not when building apps on it.
+Deploying an app (`railcode deploy`) is separate from running or updating the Railcode
+platform itself (the multi-tenant server runs on AWS Fargate behind a Cloudflare edge; see
+the repo's `docs/deployment.md`) — that only matters when the user operates the server, not
+when building apps on it.
