@@ -160,7 +160,15 @@ else
     info "The installer will ask which agent / where to install it — that's expected."
     info "(--prompt-agent chosen; the default installs to a fixed agent set non-interactively.)"
   fi
-  run "${skill_cmd[@]}"
+  if [ -n "$AGENTS" ]; then
+    # `curl … | bash` means this script is being read from stdin. Keep the
+    # non-interactive installer from consuming the rest of the script.
+    run "${skill_cmd[@]}" < /dev/null
+  elif { : < /dev/tty; } 2>/dev/null; then
+    run "${skill_cmd[@]}" < /dev/tty
+  else
+    run "${skill_cmd[@]}"
+  fi
   ok "skill installed"
 fi
 
