@@ -150,19 +150,20 @@ railcode db query "select * from orders where total > $1" --params '[100]'
 railcode db query --file report.sql --connection analytics
 ```
 
-`railcode db` inspects the org's **data connectors** (admin-configured Postgres) and runs
-ad-hoc read-only SQL from the terminal — the same connectors and `/sql` route the in-app
-`dataConnectors()` / `postgres().runSQL()` use. Run it from an app dir for an app you've
+`railcode db` inspects the org's **data connectors** (admin-configured Postgres, BigQuery, or
+Snowflake) and runs ad-hoc read-only SQL from the terminal — the same connectors and `/sql`
+route the in-app `dataConnectors()` / `data().runSQL()` use. Run it from an app dir for an app you've
 **already deployed**; it resolves the existing app by slug (it won't create one) and errors
 "run `railcode deploy` first" otherwise.
 
 - `railcode db list` (aliases `ls`, `connections`) — prints each connector's `name` +
   `engine`; `--json` prints the raw array.
 - `railcode db query "<sql>"` (alias `sql`) — runs the SQL and prints a table + row count.
-  `--connection <name>` (default `default`), `--engine <postgres|mysql>` (inferred from the
-  connector list when omitted; postgres is the only engine today), `--params '<json-array>'`
-  binds `$1, $2, …`, `--file <path>` reads SQL from a file (mutually exclusive with the
-  positional arg), `--json` prints the raw `{ columns, rows, rowcount, truncated }` envelope.
+  `--connection <name>` (default `default`), `--engine <postgres|bigquery|snowflake>` (inferred
+  from the connector list when omitted), `--params '<json-array>'` binds positional
+  placeholders (`$1, $2, …` on Postgres; `?` on BigQuery/Snowflake), `--file <path>` reads SQL
+  from a file (mutually exclusive with the positional arg), `--json` prints the raw
+  `{ columns, rows, rowcount, truncated }` envelope.
 
 SQL is read-only — always use placeholders + `--params`, never string interpolation.
 

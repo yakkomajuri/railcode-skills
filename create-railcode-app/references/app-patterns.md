@@ -49,7 +49,8 @@ declare const db: {
     prefix(value: string): /* Query */ any;
   };
 };
-// likewise: files, llm, postgres, dataConnectors, connector, serviceConnectors, designSystem
+// likewise: files, llm, data, postgres, bigquery, snowflake, dataConnectors, connector,
+// serviceConnectors, designSystem
 ```
 
 If a global is `undefined` at runtime, the page is almost certainly being served directly by
@@ -135,18 +136,27 @@ await files.delete(file.name);
 The file API is the global `files`. Keep file names flat — no `/` folders. For
 user-supplied names, generate a stable id for the file name and keep the display name in KV.
 
-## SQL Pattern (Postgres)
+## SQL Pattern (Postgres / BigQuery / Snowflake)
 
 ```ts
 const rows = await postgres("analytics").runSQL(
   "select id, name, status from customers where status = $1 order by name limit 100",
   [status],
 );
+
+// Engine-generic — routes by the connection's stored kind, so it works for any engine:
+const bq = await data("warehouse").runSQL("select id, name from `ds.customers` limit 100");
 ```
 
-`postgres` is the only database engine today. `postgres.runSQL(...)` with no name uses the
-connection named `default`. Pass user-selected filters only as `$1, $2, …`
-params. Show a useful empty state when `dataConnectors()` is empty or a connection isn't
+Supported engines are **postgres**, **bigquery**, and **snowflake**. Use `data('name')` to
+run against any connection (dispatched by stored kind), or the dialect-pinned
+`postgres`/`bigquery`/`snowflake` when you want the SQL flavor fixed at the call site (a
+mismatch is a 404). Any namespace's `.runSQL(...)` with no name uses the connection named
+`default`. Queries are forwarded verbatim (never translated): Postgres uses `$1, $2, …`
+placeholders, BigQuery/Snowflake use `?`. Pass user-selected filters only as params, never
+string-concatenated. If the app must work across engines without hardcoding one, read each
+connector's `engine` from `dataConnectors()` and pick the matching namespace (or just use
+`data`). Show a useful empty state when `dataConnectors()` is empty or a connection isn't
 configured. `rows` is an array of row objects with `rows.columns` / `rows.rowcount` /
 `rows.truncated` metadata.
 

@@ -18,7 +18,7 @@ railcode --version             # what's installed
 If they differ, upgrade the CLI: `npm install -g railcode@latest` (or
 `pnpm add -g railcode@latest`). It's a regular npm package, not a self-updating binary.
 
-This skill was last written against **CLI 0.1.11** (the multi-tenant Railcode platform).
+This skill was last written against **CLI 0.1.12** (the multi-tenant Railcode platform).
 That number is provenance, not a target to match — npm is the source of truth for "latest."
 If the latest published CLI is newer, the skill itself may lag, so update it too:
 
@@ -53,7 +53,8 @@ least:
 - **What & who** — what should the app do, and who uses it? (drives access policy and
   whether data is per-user or shared)
 - **Data** — what does it store or read? Per-user records or shared across the app's users?
-  Any external database to query via `postgres('name').runSQL()`? Any third-party SaaS API
+  Any external database (Postgres/BigQuery/Snowflake) to query via `data('name').runSQL()`
+  or a dialect-pinned `postgres`/`bigquery`/`snowflake` namespace? Any third-party SaaS API
   to reach via a `connector('name').fetch()` service connector? Any `llm` use?
 - **Design** — *"Should I use the default Railcode design system, or do you have a specific
   design direction?"* (drives step 2)
@@ -136,9 +137,12 @@ directly (in TypeScript, `declare` them or add an ambient `.d.ts`). The global S
   builder).
 - `files` → `upload(name, data, contentType?)`, `url(name)`, `list()`, `delete(name)`.
 - `llm` → `llm.generate(input, opts)` and the streaming `llm.stream(input, opts)`.
-- `postgres('name').runSQL(query, params)` (or `postgres.runSQL(...)` for the connection
-  named `default`); `dataConnectors()` lists configured connections as `{ engine, name }`.
-  `postgres` is the only database engine today.
+- `data('name').runSQL(query, params)` runs SQL against a connection of any kind
+  (dispatched on its stored engine server-side); the dialect-pinned `postgres('name')` /
+  `bigquery('name')` / `snowflake('name')` only reach connections of that engine. Each takes
+  `.runSQL(query, params)`, or `.runSQL(...)` alone for the connection named `default`.
+  `dataConnectors()` lists configured connections as `{ engine, name }` (engine is one of
+  `postgres`, `bigquery`, `snowflake`).
 - `connector('name').fetch(path, opts)` → call an admin-configured third-party SaaS API
   through the server-side proxy (the credential never reaches the browser);
   `serviceConnectors()` lists the connectors this app may call.
@@ -160,14 +164,14 @@ Model data intentionally:
 - KV is scoped per app and shared by that app's allowed users. Prefix keys with the logged-in user if the app needs per-user records.
 - Use KV query builders (`where`, `prefix`, `updatedSince`, `updatedBefore`, `orderBy`, `page`, `first`, `count`) for large or ordered lists instead of loading the whole collection. `where()` operators are the string names `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, and `in` (e.g. `.where("done", "eq", false)`), not symbols.
 - Files are scoped per app. File API names cannot contain `/`; encode hierarchy in metadata or key names instead.
-- SQL connections (postgres) are admin-configured server-side and read-only. Always use placeholders plus params.
+- SQL connections (Postgres/BigQuery/Snowflake) are admin-configured server-side and read-only. Always use placeholders plus params.
 - LLM provider/model/API key are admin-configured server-side. Send `metadata` for audit and attribution.
 
 ## Local Development
 
 Run `railcode dev` from the app directory (any directory with a `railcode.json`). It serves the app at the first available local port starting at `http://127.0.0.1:7331`, runs the app's own dev server (Vite) and reverse-proxies it (HMR included) when there's a `package.json` `dev` script, serves the SDK at `/_api/sdk.js`, and stores local KV/files under `~/.railcode/dev/<instance>/<app>/` (namespaced per instance+org). Use the printed URL; it may be `7332` or higher when another dev server is already running. Useful flags: `--port <n>` (starting proxy port), `--asset-port <n>` (starting Vite port), `--reset` (wipe this app's local KV/files first).
 
-Local dev emulates identity (`me`), app users, KV, and files entirely on local disk. The design system, SQL (`postgres`), data connectors, service connectors, and LLM are **forwarded to the configured Railcode instance** when the CLI has a saved API token — so those use the org's real provider, quota, and databases (real spend, real data). Not logged in: `dataConnectors()`/`serviceConnectors()` return empty and `postgres().runSQL()`/`llm` return `503`. The startup banner prints which mode you're in.
+Local dev emulates identity (`me`), app users, KV, and files entirely on local disk. The design system, SQL (`data`/`postgres`/`bigquery`/`snowflake`), data connectors, service connectors, and LLM are **forwarded to the configured Railcode instance** when the CLI has a saved API token — so those use the org's real provider, quota, and databases (real spend, real data). Not logged in: `dataConnectors()`/`serviceConnectors()` return empty and `data().runSQL()`/`llm` return `503`. The startup banner prints which mode you're in.
 
 ## Validation
 

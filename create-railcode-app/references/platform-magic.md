@@ -64,6 +64,8 @@ await files.upload("logo.png", blob, "image/png");
 const url = files.url("logo.png");
 
 const rows = await postgres("analytics").runSQL("select * from orders where id = $1", [id]);
+const bq   = await bigquery("warehouse").runSQL("select id from `ds.orders` where id = @p", []);
+const any  = await data("analytics").runSQL("select 1");   // engine-generic (dispatch by kind)
 const conns = await dataConnectors();             // [{ engine, name }]
 
 const resp = await connector("stripe").fetch("/v1/charges", { method: "POST", body });
@@ -72,16 +74,19 @@ const svc  = await serviceConnectors();           // [{ name, description, auth_
 const out  = await llm.generate("Summarize this record.", { metadata: { feature: "summary" } });
 ```
 
-The globals are exactly: `me`, `appUsers`, `designSystem`, `db`, `files`, `postgres`,
-`dataConnectors`, `connector`, `serviceConnectors`, `llm`. Notes:
+The globals are exactly: `me`, `appUsers`, `designSystem`, `db`, `files`, `data`, `postgres`,
+`bigquery`, `snowflake`, `dataConnectors`, `connector`, `serviceConnectors`, `llm`. Notes:
 
 - `me()` returns nested objects. Use **`me().user.uuid`** as the stable per-user key for
   ownership/permissions/KV prefixes; `me().user.name`/`.email` are for display.
-- `postgres` is the only database engine today; `dataConnectors()` lists the configured
-  connections as `{ engine, name }`.
+- SQL runs through the database namespaces: `data(name)` is engine-generic (dispatches on the
+  connection's stored kind server-side); `postgres(name)` / `bigquery(name)` / `snowflake(name)`
+  are dialect-pinned and only reach connections of that engine. `dataConnectors()` lists the
+  configured connections as `{ engine, name }`, where engine is `postgres`, `bigquery`, or
+  `snowflake`.
 
 The SDK also ships a hidden live inspector drawer that logs every call (`db`, `files`, `llm`,
-`postgres`, `connector`, `me()`, `appUsers()`, `designSystem()`) with a pending → ok/error
+`data`/`postgres`/`bigquery`/`snowflake`, `connector`, `me()`, `appUsers()`, `designSystem()`) with a pending → ok/error
 transition and timing. It has no on-screen affordance — toggle it with ``Ctrl+` `` (control +
 backtick). It is present in production too, just dormant until opened. Do not swallow SDK
 errors; surface useful error states in the app.
@@ -164,10 +169,10 @@ await files.delete("logo.png");
 segments. Don't model folders in the name — keep names flat and store logical hierarchy in
 KV. Served bytes are returned `Content-Disposition: attachment` + `nosniff`.
 
-## SQL (Postgres)
+## SQL (Postgres / BigQuery / Snowflake)
 
-An admin registers global Postgres connections server-side. Browser apps query them through a
-per-engine namespace without ever seeing DSNs or passwords:
+An admin registers global SQL connections server-side. Browser apps query them through a
+database namespace without ever seeing DSNs, passwords, or service-account keys:
 
 ```js
 const rows = await postgres("analytics").runSQL(
@@ -179,11 +184,16 @@ const rows = await postgres("analytics").runSQL(
 
 Rules:
 
-- `postgres('name').runSQL(sql, params)` targets a named connection; `postgres.runSQL(...)`
-  (no name) targets the connection named `default`.
-- Only **postgres** is supported today; the backend rejects other engines.
-- Treat SQL as **read-only**. Always use `$1, $2, …` placeholders + a params array; never
-  concatenate user input.
+- `data('name').runSQL(sql, params)` runs against a connection of **any** kind — the backend
+  dispatches on the connection's stored engine. The dialect-pinned `postgres('name')` /
+  `bigquery('name')` / `snowflake('name')` only reach connections of that engine (a mismatch
+  is a 404). Either form takes `.runSQL(sql, params)`, or `.runSQL(...)` with no name for the
+  connection named `default`.
+- **postgres**, **bigquery**, and **snowflake** are supported; the backend rejects other
+  engines. The query is forwarded verbatim and never translated, so write in the target
+  engine's SQL dialect (Postgres uses `$1` placeholders; BigQuery/Snowflake use `?`).
+- Treat SQL as **read-only**. Always use placeholders + a params array; never concatenate user
+  input.
 - Call `dataConnectors()` to discover configured connections as `{ engine, name }`. Expect it
   to be empty in unauthenticated local dev (and show a clean empty state).
 - The server caps result rows (the envelope's `truncated` flag tells you when it did).
@@ -251,11 +261,11 @@ const result = await llm.generate("Classify this customer.", {
 - Identity (`me`), `appUsers`, KV, and files are **emulated on local disk** under
   `~/.railcode/dev/<instance>/<app>/`. The KV query engine is a port of the backend, so
   `where`/`prefix`/`orderBy`/`page`/`first`/`count` behave exactly as in production.
-- `designSystem()`, `postgres().runSQL()`, `dataConnectors()`, `serviceConnectors()`,
-  `connector().fetch()`, and `llm` **forward to the real instance** when the CLI has a saved
-  token — real provider, quota, databases, and connectors (real spend + data).
+- `designSystem()`, `data()/postgres()/bigquery()/snowflake().runSQL()`, `dataConnectors()`,
+  `serviceConnectors()`, `connector().fetch()`, and `llm` **forward to the real instance** when
+  the CLI has a saved token — real provider, quota, databases, and connectors (real spend + data).
 - Not logged in: `dataConnectors()`/`serviceConnectors()` return empty and
-  `postgres().runSQL()`/`llm` return `503` (never `401`). The startup banner says which mode
+  `data().runSQL()`/`llm` return `503` (never `401`). The startup banner says which mode
   you're in, so you don't have to fire a request to find out.
 
 This lets agents build most app behavior without a live server, then layer on
